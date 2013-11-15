@@ -217,8 +217,8 @@
 		resupply = parseInt(resupply);
 		row_element.find('.label-warning').remove();
 		if(resupply < 0) {
-			row_element.find('.col_drug').append("<span class='label label-warning' style='display:block'>Warning! Resupply qty cannot be negative</<span>");
-			row_element.find(".resupply").css("background-color", "#f89406");
+			//row_element.find('.col_drug').append("<span class='label label-warning' style='display:block'>Warning! Resupply qty cannot be negative</<span>");
+			//row_element.find(".resupply").css("background-color", "#f89406");
 		} else {
 			row_element.find(".resupply").css("background-color", "#fff");
 		}
@@ -336,6 +336,7 @@ if($logged_in_facility == $ordering_facility){
 
 <th class="col_adjustments">Adjustments (Borrowed from or Issued out to Other Facilities)</th>
 <th class="number">End of Month Physical Count</th>
+<th class="number" colspan="2">Quantity to Expire in less than 6 months</th>
 
 <!-- aggr_consumed/on_hand -->
 <th class="number">Qty required for Resupply</th>
@@ -352,7 +353,8 @@ if($logged_in_facility == $ordering_facility){
 
 <th>In Units</th> <!-- adjustments -->
 <th>In Units</th> <!-- count -->
-
+<th>In Units</th> <!-- expire -->
+<th>mm-yy</th> <!-- expire -->
 <!-- aggr_consumed/on_hand -->
 
 <th>In Units</th> <!-- resupply -->
@@ -365,7 +367,9 @@ if($logged_in_facility == $ordering_facility){
 <th>D</th> <!-- losses -->
 <th>E</th> <!-- adjustments -->
 <th>F</th> <!-- count -->
-<th>G</th> <!-- count -->
+<th>G</th> <!-- expire -->
+<th>H</th> <!-- expire -->
+<th>I</th> <!-- count -->
 
 <!-- aggr_consumed/on_hand -->
 
@@ -406,11 +410,18 @@ $counter = 0;
 							<input name="losses[]" id="losses_in_period_<?php echo $commodity -> id;?>" type="text" class="losses">
 							</td>
 							<td class="number calc_count">
-							<input name="adjustments[]" id="CdrrItem_10_adjustments" type="text" class="adjustments">
+							<input name="adjustments[]" id="adjustments_in_period_<?php echo $commodity -> id;?>" type="text" class="adjustments">
 							</td>
 							<td class="number calc_resupply col_count">
-							<input tabindex="-1" name="physical_count[]" id="CdrrItem_10_count" type="text" class="physical_count">
+							<input tabindex="-1" name="physical_count[]" id="physical_in_period_<?php echo $commodity -> id;?>" type="text" class="physical_count">
 							</td>
+							<!--Expire-->
+				<td class="number calc_expire_qty col_exqty">
+					<input tabindex="-1" name="expire_qty[]" id="expire_qty_<?php echo $commodity -> id;?>" type="text" class="expire_qty">
+				</td>
+				<td class="number calc_expire_period col_experiod">
+				    <input tabindex="-1" name="expire_period[]" id="expire_period_<?php echo $commodity -> id;?>" type="text" class="expire_period">
+				</td>
 							<!-- aggregate -->
 							<td class="number col_resupply">
 							<input tabindex="-1" name="resupply[]" id="CdrrItem_10_resupply" type="text" class="resupply">

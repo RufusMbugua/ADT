@@ -3,10 +3,139 @@ class Order_Management extends MY_Controller {
 	function __construct() {
 		parent::__construct();
 		$this -> load -> library('pagination');
+		date_default_timezone_set('Africa/Nairobi');
+		$this -> load -> library('PHPExcel');
 	}
 
 	public function index() {
 		$this -> submitted_orders();
+	}
+
+	public function export($order) {
+		$inputFileType = 'Excel2007';
+		$inputFileName = $_SERVER['DOCUMENT_ROOT'] . '/ADT/assets/template.xlsx';
+		$objReader = PHPExcel_IOFactory::createReader($inputFileType);
+		$objPHPExcel = $objReader -> load($inputFileName);
+		$order_types = array(0 => "Central Order", 1 => "Aggregated Order", 2 => "Satellite Order");
+		$original_order = $order;
+		$dir = "Export";
+		$i = 9;
+		$j = $i - 1;
+		$last_counter = 0;
+		$overall_total = 0;
+		$made_by = "";
+		$access_level = "";
+
+		/*Delete all files in export folder*/
+		if (is_dir($dir)) {
+			$files = scandir($dir);
+			foreach ($files as $object) {
+				if ($object != "." && $object != "..") {
+					unlink($dir . "/" . $object);
+				}
+			}
+		} else {
+			mkdir($dir);
+		}
+
+		/*Resources needed*/
+		$order_details = Facility_Order::getOrder($order);
+		$order = $order_details -> Unique_Id;
+		$cdrrs = Cdrr_Item::getOrderItems($order);
+		$maps = Maps_Item::getOrderItems($order);
+		$comments = Order_Comment::getOrderComments($order);
+
+		/*Set Order Details*/
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('G2', $original_order . "(" . @$order_types[$order_details -> Code] . ")");
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('G3', $order_details -> Facility_Object -> name);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('G4', $order_details -> Facility_Object -> Parent_District -> Name . "/" . $order_details -> Facility_Object -> County -> county);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('K2', $order_details -> Facility_Object -> facilitycode);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('K3', $order_details -> Facility_Object -> Type -> Name);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('K4', date("M-Y", strtotime($order_details -> Period_Begin)));
+
+		/*Set Cddr Commodities*/
+		$type = $order_details -> Code;
+		$unit = "In Units";
+		if ($type == "1") {
+			$unit = "In Packs";
+		}
+
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('C' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('D' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('E' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('F' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('G' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('H' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('I' . $j, $unit);
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('K' . $j, $unit);
+
+		foreach ($cdrrs as $cdrr) {
+			$i++;
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('A' . $i, $cdrr -> Drugcode_Object -> Drug);
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('B' . $i, $cdrr -> Drugcode_Object -> Pack_Size);
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('C' . $i, number_format((double)$cdrr -> Balance));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('D' . $i, number_format((double)$cdrr -> Received));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('E' . $i, number_format((double)$cdrr -> Dispensed_Units));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('F' . $i, number_format((double)$cdrr -> Losses));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('G' . $i, number_format((double)$cdrr -> Adjustments));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('H' . $i, number_format((double)$cdrr -> Count));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('I' . $i, number_format((double)$cdrr -> Aggr_Consumed));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('J' . $i, $cdrr -> Aggr_On_Hand);
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('K' . $i, number_format((double)$cdrr -> Resupply));
+
+		}
+		$last_counter = $i;
+		$i = 9;
+		/*Set Maps Patients*/
+		foreach ($maps as $map) {
+			$i++;
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('M' . $i, $map -> Regimen_Id);
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('N' . $i, number_format((double)$map -> Total));
+			$overall_total += $map -> Total;
+		}
+		$i++;
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('M' . $i, "Overall Total");
+		$objPHPExcel -> getActiveSheet() -> SetCellValue('N' . $i, number_format((double)$overall_total));
+
+		$i = $last_counter + 3;
+		/*Set Comments*/
+		foreach ($comments as $comment) {
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('A' . $i, "Comments");
+			$i++;
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('A' . $i, $comment -> Comment);
+			$i = $i + 3;
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('A' . $i, "Last Update");
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('B' . $i, "Made By");
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('C' . $i, "Access Level");
+			$i++;
+			if ($comment -> User_Object -> Name) {
+				$made_by = $comment -> User_Object -> Name;
+			} else {
+				$made_by = $comment -> User;
+			}
+			if ($comment -> User_Object -> Access -> Level_Name) {
+				$access_level = $comment -> User_Object -> Access -> Level_Name;
+			} else {
+				$access_level = "Facility Administrator";
+			}
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('A' . $i, date('l d-M-Y h:i:s a', $comment -> Timestamp));
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('B' . $i, $made_by);
+			$objPHPExcel -> getActiveSheet() -> SetCellValue('C' . $i, $access_level);
+			$i = $i + 3;
+		}
+
+		/*Generate CSV File*/
+		ob_start();
+		$facility_name = Facilities::getFacilityName($order_details -> Facility_Object -> facilitycode);
+		$facility_name .= "(" . date('d-M-Y h:i:s a') . ")";
+		$filename = $dir . "/F-Maps Order_no " . $original_order . ".xlsx";
+		$objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
+		$objWriter -> save($filename);
+		$objPHPExcel -> disconnectWorksheets();
+		unset($objPHPExcel);
+		if (file_exists($filename)) {
+			redirect($filename);
+		}
 	}
 
 	public function view_order($order) {
@@ -204,7 +333,11 @@ class Order_Management extends MY_Controller {
 		} elseif ($status == 3) {
 			$data['page_title'] = "Dispatched Orders";
 			$data['days_pending'] = "Delivery";
+		} elseif ($status == 4) {
+			$data['page_title'] = "Delivered Orders";
+			$data['days_pending'] = "Since Delivery";
 		}
+
 		$facility = $this -> session -> userdata('facility');
 		$items_per_page = 10;
 		$number_of_orders = Facility_Order::getTotalFacilityNumber($status, $facility);
@@ -271,7 +404,8 @@ class Order_Management extends MY_Controller {
 		$data = array();
 		$data['content_view'] = "new_order_v";
 		$data['banner_text'] = "New Order";
-		$data['commodities'] = Drugcode::getAllObjects($this -> session -> userdata('facility'));
+		$supplier['supplied_by'] = Facilities::getSupplier($this -> session -> userdata("facility"));
+		$data['commodities'] = Drugcode::getAllObjects($supplier['supplied_by']);
 		$data['regimens'] = Regimen::getAllObjects($this -> session -> userdata('facility'));
 		$this -> base_params($data);
 	}
@@ -334,8 +468,8 @@ class Order_Management extends MY_Controller {
 			} else {
 				$data['banner_text'] = "New Satellite Order";
 			}
-
-			$data['commodities'] = Drugcode::getAllObjects($facility_code);
+			$supplier['supplied_by'] = Facilities::getSupplier($this -> session -> userdata("facility"));
+			$data['commodities'] = Drugcode::getAllObjects($supplier['supplied_by']);
 			//$data['regimens'] = Regimen::getAllObjects($facility_id);
 			$data['regimen_categories'] = Regimen_Category::getAll();
 			$data['facility_object'] = Facilities::getCodeFacility($facility_code);
@@ -370,7 +504,8 @@ class Order_Management extends MY_Controller {
 				$data['content_view'] = "new_order_v";
 				//$data['scripts'] = array("offline_database.js");
 				$data['banner_text'] = "New Satellite Order";
-				$data['commodities'] = Drugcode::getAllObjects($facility_id);
+				$supplier['supplied_by'] = Facilities::getSupplier($this -> session -> userdata("facility"));
+				$data['commodities'] = Drugcode::getAllObjects($supplier['supplied_by']);
 				//$data['regimens'] = Regimen::getAllObjects($facility_id);
 				$data['regimen_categories'] = Regimen_Category::getAll();
 				$data['facility_object'] = Facilities::getCodeFacility($facility_id);
@@ -387,10 +522,12 @@ class Order_Management extends MY_Controller {
 			$data['content_view'] = "new_order_v";
 			//$data['scripts'] = array("offline_database.js");
 			$data['banner_text'] = "New Satellite Order";
-			$data['commodities'] = Drugcode::getAllObjects($facility_id);
+			$supplier['supplied_by'] = Facilities::getSupplier($this -> session -> userdata("facility"));
+			$data['commodities'] = Drugcode::getAllObjects($supplier['supplied_by']);
 			//$data['regimens'] = Regimen::getAllObjects($facility_id);
 			$data['regimen_categories'] = Regimen_Category::getAll();
 			$data['facility_object'] = Facilities::getCodeFacility($facility_id);
+			$data['hide_side_menu'] = 0;
 			$this -> base_params($data);
 			return;
 
@@ -428,8 +565,8 @@ class Order_Management extends MY_Controller {
 		$losses = $this -> input -> post('losses');
 		$adjustments = $this -> input -> post('adjustments');
 		$physical_count = $this -> input -> post('physical_count');
-		$expiry_quantity = $this -> input -> post('expiry_quantity');
-		$expiry_date = $this -> input -> post('expiry_date');
+		$expiry_quantity = $this -> input -> post('expire_qty');
+		$expiry_date = $this -> input -> post('expire_period');
 		$out_of_stock = $this -> input -> post('out_of_stock');
 		$resupply = $this -> input -> post('resupply');
 		$commodities = $this -> input -> post('commodity');
@@ -566,12 +703,12 @@ class Order_Management extends MY_Controller {
 					$cdrr_item -> Losses = $losses[$commodity_counter];
 					$cdrr_item -> Adjustments = $adjustments[$commodity_counter];
 					$cdrr_item -> Count = $physical_count[$commodity_counter];
-					$cdrr_item -> Resupply = $newresupply[$commodity_counter];
-					$cdrr_item -> Newresupply =$resupply[$commodity_counter];
+					$cdrr_item -> Resupply = $resupply[$commodity_counter];
+					$cdrr_item -> Newresupply = $resupply[$commodity_counter];
 					//The following not required for fcdrrs
-					/*$cdrr_item->Aggr_Consumed = $opening_balances[$commodity_counter];
-					 $cdrr_item->Aggr_On_Hand = $opening_balances[$commodity_counter];
-					 $cdrr_item->Publish = $opening_balances[$commodity_counter];*/
+					$cdrr_item->Aggr_Consumed = $expiry_quantity[$commodity_counter];
+					$cdrr_item->Aggr_On_Hand = $expiry_date[$commodity_counter];
+					// $cdrr_item->Publish = $opening_balances[$commodity_counter];*/
 					$cdrr_item -> Cdrr_Id = $unique_id;
 					$cdrr_item -> Drug_Id = $commodities[$commodity_counter];
 					$sql = "select max(id)as last from cdrr_item";
@@ -601,7 +738,7 @@ class Order_Management extends MY_Controller {
 			foreach ($regimens as $regimen) {
 				//Check if any patient numbers have been reported for this regimen
 				if ($patient_numbers[$regimen_counter] > 0) {
-					echo $regimens[$regimen_counter]."-".$patient_numbers[$regimen_counter]."<br/>";
+					echo $regimens[$regimen_counter] . "-" . $patient_numbers[$regimen_counter] . "<br/>";
 					$maps_item = new Maps_Item();
 					$maps_item -> Total = $patient_numbers[$regimen_counter];
 					$maps_item -> Regimen_Id = $regimens[$regimen_counter];
@@ -736,7 +873,7 @@ class Order_Management extends MY_Controller {
 		}
 
 		//generate the queries to retrieve the aggregated values
-		$sql_cdrr = "select drug_id,sum(balance) as balance,sum(received) as received,sum(dispensed_units) as dispensed_units,sum(dispensed_packs) as dispensed_packs,sum(losses) as losses,sum(adjustments) as adjustments,sum(count) as count, sum(resupply) as resupply from cdrr_item c where ($cdrr_portion) group by drug_id";
+		$sql_cdrr = "select drug_id,sum(balance) as balance,sum(received) as received,sum(dispensed_units) as dispensed_units,sum(dispensed_packs) as dispensed_packs,sum(losses) as losses,sum(adjustments) as adjustments,sum(count) as count, sum(resupply) as resupply,sum(aggr_consumed) as aggr_consumed,aggr_on_hand from cdrr_item c where ($cdrr_portion) group by drug_id";
 		$sql_maps = "select regimen_id,sum(total) as total from maps_item where $maps_portion group by regimen_id";
 		$cdrr_results = $this -> db -> query($sql_cdrr) -> result_array();
 		$maps_results = $this -> db -> query($sql_maps) -> result_array();
@@ -762,7 +899,7 @@ class Order_Management extends MY_Controller {
 		$data['content_view'] = "new_aggregated_order_v";
 		$data['banner_text'] = "Aggregated Order";
 		$data['hide_side_menu'] = 0;
-		$data['commodities'] = Drugcode::getAllObjects($this -> session -> userdata('facility'));
+		$data['commodities'] = Drugcode::getAllObjects($data['facility_object']['supplied_by']);
 		$data['regimen_categories'] = Regimen_Category::getAll();
 		$this -> base_params($data);
 	}
@@ -774,8 +911,99 @@ class Order_Management extends MY_Controller {
 		echo json_encode($results);
 	}
 
+	public function getPeriodDrugs($drug_id, $start_date, $end_date) {
+		$prev_start = date("Y-m-d", strtotime("-1 month", strtotime($start_date)));
+		$prev_end = date("Y-m-d", strtotime("-1 month", strtotime($end_date)));
+		$period = 180;
+		$sql = "SELECT main_temp.drug_id, main_temp.beginning_balance, sec_temp.stocks_qty, sec_temp.early_expiry 
+		        FROM(SELECT $drug_id as drug_id,SUM(dst.balance) AS beginning_balance,temp_expire.stocks_qty,temp_expire.early_expiry 
+		             FROM drug_stock_movement dst,(SELECT drug, batch_number, MAX( transaction_date ) AS trans_date 
+		                                           FROM  `drug_stock_movement` 
+		                                           WHERE transaction_date 
+		                                           BETWEEN  '$prev_start' AND  '$prev_end' 
+		                                           AND drug ='$drug_id'  
+		                                           GROUP BY batch_number) AS temp,(SELECT d.id, SUM( dsb.balance ) AS stocks_qty, dsb.expiry_date AS early_expiry 
+		                                                                           FROM drugcode d 
+		                                                                           LEFT JOIN drug_unit u ON d.unit = u.id 
+		                                                                           LEFT JOIN drug_stock_balance dsb ON d.id = dsb.drug_id 
+		                                                                           WHERE DATEDIFF( dsb.expiry_date, CURDATE( ) ) <=  '$period' 
+		                                                                           AND DATEDIFF( dsb.expiry_date, CURDATE( ) ) >=0 
+		                                                                           AND d.enabled =1 
+		                                                                           AND dsb.balance >0 
+		                                                                           AND d.id =  '$drug_id' 
+		                                                                           GROUP BY d.drug ORDER BY dsb.expiry_date ASC) as temp_expire 
+		                                                                           WHERE dst.drug = temp.drug 
+		                                                                           AND dst.drug = temp_expire.id 
+		                                                                           AND dst.batch_number = temp.batch_number 
+		                                                                           AND dst.transaction_date = temp.trans_date) AS main_temp 
+		         LEFT JOIN (SELECT d.id, SUM( dsb.balance ) AS stocks_qty, dsb.expiry_date AS early_expiry 
+		                    FROM drugcode d 
+		                    LEFT JOIN drug_unit u ON d.unit = u.id 
+		                    LEFT JOIN drug_stock_balance dsb ON d.id = dsb.drug_id 
+		                    WHERE DATEDIFF( dsb.expiry_date, CURDATE( ) ) <=  '$period' 
+		                    AND DATEDIFF( dsb.expiry_date, CURDATE( ) ) >=0 
+		                    AND d.enabled =1 
+		                    AND dsb.balance >0 
+		                    AND d.id =  '$drug_id' 
+		                    GROUP BY d.drug 
+		                    ORDER BY dsb.expiry_date ASC) AS sec_temp ON sec_temp.id = main_temp.drug_id";
+
+		$query = $this -> db -> query($sql);
+		$results = $query -> result_array();
+		$row = array();
+		$row["drug"] = (int)$drug_id;
+		if ($results) {
+			if ($results[0]['beginning_balance'] != null) {
+				$row["beginning_balance"] = (int)$results[0]['beginning_balance'];
+				$row["stock_to_expire"] = (int)$results[0]['stocks_qty'];
+				$row["early_expiry"] =  (int)$results[0]['early_expiry'];
+			} else {
+				$row["beginning_balance"] = 0;
+				if((int)$results[0]['stocks_qty']>0){
+					$row["early_expiry"] = date('M-Y',strtotime($results[0]['early_expiry']));
+				}else{
+					$row["early_expiry"] = "-";
+				}
+				$row["stock_to_expire"] = (int)$results[0]['stocks_qty'];
+				
+			}
+		} else {
+			$row["beginning_balance"] = 0;
+			$row["stock_to_expire"] = 0;
+			$row["early_expiry"] = "-";
+		}
+		$start_date = date('Y-m-d', strtotime($start_date));
+		$end_date = date('Y-m-d', strtotime($end_date));
+		$sql = "SELECT trans.name, trans.id, trans.effect, dsm.in_total, dsm.out_total FROM (SELECT id, name, effect FROM transaction_type WHERE name LIKE  '%received%' OR name LIKE  '%adjustment%' OR name LIKE  '%return%' OR name LIKE  '%dispense%' OR name LIKE  '%issue%' OR name LIKE  '%loss%' OR name LIKE  '%ajustment%' OR name LIKE  '%physical%count%' OR name LIKE  '%starting%stock%') AS trans LEFT JOIN (SELECT transaction_type, SUM( quantity ) AS in_total, SUM( quantity_out ) AS out_total FROM drug_stock_movement WHERE transaction_date BETWEEN  '$start_date' AND  '$end_date' AND drug =  '$drug_id'  GROUP BY transaction_type) AS dsm ON trans.id = dsm.transaction_type GROUP BY trans.name";
+		$query = $this -> db -> query($sql);
+		$results = $query -> result_array();
+		if ($results) {
+			foreach ($results as $result) {
+				$effect = $result['effect'];
+				$trans_name = str_replace(array(" ", "(-)", "(+)", "/"), array("_", "_", "plus", "_"), $result['name']);
+				if ($effect == 1) {
+					if ($result['in_total'] != null) {
+						$total = (int)$result['in_total'];
+					} else {
+						$total = 0;
+					}
+				} else {
+					if ($result['out_total'] != null) {
+						$total = (int)$result['out_total'];
+					} else {
+						$total = 0;
+					}
+				}
+				$row[$trans_name] = $total;
+			}
+		}
+		echo json_encode($row);
+	}
+
 	public function getPeriodRegimenPatients($from, $to) {
-		$sql = "SELECT regimen, COUNT( DISTINCT patient_id ) AS patients FROM patient_visit WHERE dispensing_date BETWEEN  '$from' AND  '$to' GROUP BY regimen";
+		$facility_code = $this -> session -> userdata("facility");
+		$sql = "SELECT count(*) as patients, r.regimen_desc,r.regimen_code,p.current_regimen as regimen FROM patient p,regimen r WHERE p.date_enrolled<='$to' AND p.current_status=1 AND r.id=p.current_regimen AND p.facility_code='$facility_code' AND p.current_regimen !=0 AND p.current_regimen !='' AND p.current_status !='' AND p.current_status !=0 GROUP BY p.current_regimen ORDER BY r.regimen_code ASC";
+		//$sql = "SELECT regimen, COUNT( DISTINCT patient_id ) AS patients FROM patient_visit WHERE dispensing_date BETWEEN  '$from' AND  '$to' GROUP BY regimen";
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
 		echo json_encode($results);

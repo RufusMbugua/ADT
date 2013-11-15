@@ -33,6 +33,11 @@ class District extends Doctrine_Record {
 		return $districts;
 		
 	}
+	public function getActive() {
+		$query = Doctrine_Query::create() -> select("*") -> from("District")->where("active='1'");
+		$districts = $query -> execute(array(), Doctrine::HYDRATE_ARRAY);
+		return $districts;
+	}
 
 }//end class
 ?>

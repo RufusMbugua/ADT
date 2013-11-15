@@ -22,6 +22,7 @@ foreach($results as $result){
 		</style>
 		<script type="text/javascript">
 			$(document).ready(function() {
+				<?php $this -> session -> set_userdata('record_no', $result['id']);?>
 				$("#patient").val("<?php echo $result['patient_number_ccc'];?>");
 				var first_name="<?php echo strtoupper($result['first_name']); ?>";
 				var other_name="<?php echo strtoupper($result['other_name']); ?>";
@@ -36,9 +37,13 @@ foreach($results as $result){
 				<?php
 				}
 				?>
-				
 				var last_visit_date ="<?php echo @$last_regimens['dispensing_date']; ?>";
-				$("#last_visit_date").attr("value", last_visit_date);
+				if(last_visit_date){
+					var last_visit_date ="<?php echo date('d-M-Y',strtotime(@$last_regimens['dispensing_date'])); ?>";
+				    $("#last_visit_date").attr("value", last_visit_date);
+				}
+				
+				
 				
 				//Get Prev Appointment
 				<?php
@@ -57,6 +62,7 @@ foreach($results as $result){
 				$("#days_late").append(html);
 				$("#days_count").attr("value", diffDays);
 				$("#last_appointment_date").attr("value","<?php echo @$appointments['appointment']; ?>");
+				$("#last_appointment_date").attr("value","<?php echo date('d-M-Y',strtotime(@$appointments['appointment'])); ?>");
 				<?php
 				}
 				?>
@@ -78,7 +84,7 @@ foreach($results as $result){
 			//Add listener to check purpose
 			$("#purpose").change(function() {
 					$("#adherence").attr("value", " ");
-					$("#adherence").removeAttr("disabled");
+					$("#adherence").removeAttr("readonly");
 					var selected_value = $(this).val();
 					var day_percentage = 0;
 					if(selected_value == 2 || selected_value == 5) {
@@ -93,7 +99,7 @@ foreach($results as $result){
 							day_percentage = "<85%";
 						}
 						$("#adherence").attr("value", day_percentage);
-						$("#adherence").attr("disabled", "disabled");
+						$("#adherence").attr("readonly", "readonly");
 					}
 
 			});
@@ -133,8 +139,11 @@ foreach($results as $result){
                         var qty_disp=row.closest("tr").find(".qty_disp").val();
 					    var dose_val=row.closest("tr").find(".dose option:selected").attr("dose_val");
 					    var dose_freq=row.closest("tr").find(".dose option:selected").attr("dose_freq");
+					    /*
 					    var pill_count=getPillCount(dose_val,dose_freq,qty_disp);
-					    row.closest("tr").find(".next_pill_count").val(pill_count);
+					    var current_pill_count=row.closest("tr").find(".pill_count").val();
+					    row.closest("tr").find(".next_pill_count").val(parseFloat(pill_count)+parseFloat(current_pill_count));
+					    */
 				    });
 			 });
 			 
@@ -192,8 +201,23 @@ foreach($results as $result){
 		           $.each(prev_visit_arr, function(i, v) {
 						var prev_drug_id=v['drug_id'];
 						var prev_drug_qty=v['mos'];
-						if(selected_drug==prev_drug_id){
-							row.closest("tr").find(".pill_count").val(prev_drug_qty);
+						var prev_qty=v['quantity'];
+						var prev_date=v['dispensing_date'];
+						var prev_value=v['value'];
+						var prev_frequency=v['frequency'];
+						
+						
+					if(selected_drug==prev_drug_id){
+						var base_date = new Date();
+						var today = new Date(base_date.getFullYear(), base_date.getMonth(), base_date.getDate());
+						var today_timestamp = today.getTime();
+						var one_day = 1000 * 60 * 60 * 24;
+						var appointment_timestamp = Date.parse(prev_date);
+						var difference = today_timestamp-appointment_timestamp;
+						var days_difference = difference / one_day;
+						days_difference=days_difference.toFixed(0);
+						prev_drug_qty=getActualPillCount(days_difference,prev_value,prev_frequency,prev_qty);
+						row.closest("tr").find(".pill_count").val(prev_drug_qty);
 						}
 				   });
 				<?php 
@@ -351,8 +375,11 @@ foreach($results as $result){
 					var qty_disp=row.closest("tr").find(".qty_disp").val();
 					var dose_val=row.closest("tr").find(".dose option:selected").attr("dose_val");
 					var dose_freq=row.closest("tr").find(".dose option:selected").attr("dose_freq");
+					/*
 					var pill_count=getPillCount(dose_val,dose_freq,qty_disp);
-					row.closest("tr").find(".next_pill_count").val(pill_count);
+					var current_pill_count=row.closest("tr").find(".pill_count").val();
+					row.closest("tr").find(".next_pill_count").val(parseFloat(pill_count)+parseFloat(current_pill_count));
+					*/
 			})
 						
 			$(".add").click(function() {
@@ -397,6 +424,7 @@ foreach($results as $result){
 					row_element.find(".soh").attr("value", "");
 					row_element.find(".indication").attr("value", "");
 					row_element.find(".pill_count").attr("value", "");
+					row_element.find(".next_pill_count").attr("value", "");
 					row_element.find(".pill_count").removeAttr("disabled");
 					row_element.find(".comment").attr("value", "");
 					row_element.find(".missed_pills").attr("value", "");
@@ -411,15 +439,16 @@ foreach($results as $result){
 			$(".remove").click(function() {
 				$(this).closest('tr').remove();
 			});
-			
+			/*
 			$(".confirm").click(function(){
 				var test_confirm=confirm("Are You Sure?");
 				if(test_confirm){
+					alert("Marete")
 					return true;
 				}else{
 					return false;
 				}
-			});
+			});*/
 			
 		 function resetFields(row){
 			row.closest("tr").find(".qty_disp").val("");
@@ -450,11 +479,11 @@ foreach($results as $result){
 					   var days_of_week = ["Sunday", "Monday", "Tuseday", "Wednesday", "Thursday", "Friday", "Saturday"];
 					      if(formatted_date_day == 6 || formatted_date_day == 0) {
 						     alert("It will be on " + days_of_week[formatted_date_day] + " During the Weekend");
-						   if(data[0].total_appointments  > data[0].weekend_max ) {
+						   if(parseInt(data[0].total_appointments)  > parseInt(data[0].weekend_max)) {
 							 alert("Maximum Appointments for Weekend Reached");
 						   }
 					      } else {
-						if(data[0].total_appointments  > data[0].weekday_max ) {
+						if(parseInt(data[0].total_appointments) > parseInt(data[0].weekday_max)) {
 							alert("Maximum Appointments for Weekday Reached");
 						}
 
@@ -573,13 +602,11 @@ foreach($results as $result){
 					
 					//After getting the number of drugs issued, create a unique entry (sql statement) for each in the database in this loop
 					for(var i = 0; i < drugs_count; i++) {
-						
 						sql += "INSERT INTO patient_visit (patient_id, visit_purpose, current_height, current_weight, regimen, regimen_change_reason, drug_id, batch_number, brand, indication, pill_count, comment, timestamp, user, facility, dose, dispensing_date, dispensing_date_timestamp,quantity,duration,adherence,missed_pills,non_adherence_reason) VALUES ('" + dump["patient"] + "', '" + dump["purpose"] + "', '" + dump["height"] + "', '" + dump["weight"] + "', '" + dump["current_regimen"] + "', '" + dump["regimen_change_reason"] + "', '" + drugs[i] + "', '" + batches[i] + "', '" + brands[i] + "', '" + indications[i] + "', '" + pill_counts[i] + "', '" + comments[i] + "', '" + timestamp + "', '" + user + "', '" + facility + "', '" + doses[i] + "', DATE(STR_TO_DATE('"+dump["dispensing_date"]+"','%Y-%m-%d')), '" + dispensing_date_timestamp + "','" + quantities[i] + "','" + durations[i] + "','" + dump["adherence"] + "','" + missed_pills[i] + "','" + dump["non_adherence_reasons"] + "');";
 						drug_consumption = "INSERT INTO drug_stock_movement (drug, transaction_date, batch_number, transaction_type,source,destination,expiry_date,quantity, quantity_out, facility,timestamp) VALUES ('" + drugs[i] + "', DATE(STR_TO_DATE('"+dump["dispensing_date"]+"','%Y-%m-%d')), '" + batches[i] + "', '" + transaction_type + "','"+facility+"','"+facility+"',DATE(STR_TO_DATE('"+expiry[i]+"','%Y-%m-%d')),0,'" + quantities[i] + "','" + facility + "','" + timestamp + "');";
 						sql += drug_consumption;
 						balance_sql="UPDATE drug_stock_balance SET balance=balance - "+quantities[i]+" WHERE drug_id='"+drugs[i]+"' AND batch_number='"+batches[i]+"' AND expiry_date=DATE(STR_TO_DATE('"+expiry[i]+"','%Y-%m-%d')) AND stock_type='2' AND facility_code='"+facility+"';";
 						sql += balance_sql;
-						
 						if((i+1)==drugs_count){
 							//console.log(sql);
 							$("#sql").val(sql);
@@ -642,6 +669,27 @@ foreach($results as $result){
 				        return pill_count;
 					}
 			}
+			
+			function getActualPillCount(days_issued,dose_qty,dose_frequency,total_actual_drugs){
+				var error_message="";
+					if(!dose_qty){
+						error_message+="Dose has no Value \r\n";
+					}
+					if(!dose_frequency){
+						error_message+="Dose has no Frequency \r\n";
+					}
+					if(!total_actual_drugs){
+						error_message+="No Quantity to Dispense Selected \r\n";
+					}					
+				    if(error_message){
+					   //alert(error_message);
+				    }else{
+						var drugs_per_day=(dose_qty*dose_frequency);
+				        var total_expected_drugs=(drugs_per_day*days_issued);
+				        var pill_count=(total_actual_drugs-total_expected_drugs);			       
+				        return pill_count;
+					}
+			}
 
 		</script>
 
@@ -653,7 +701,7 @@ foreach($results as $result){
 				<hr size="1">
 			</div>
 			<h3>Dispense Drugs</h3>
-			<form id="dispense_form" class="dispense_form" method="post"  action="<?php echo base_url().'dispensement_management/save';?>" onsubmit="return processData('dispense_form')" >
+			<form id="dispense_form" class="dispense_form" method="post"  action="<?php echo base_url().'dispensement_management/save';?>"  >
 				<textarea name="sql" id="sql" style="display:none;"></textarea>
 				<input type="hidden" id="hidden_stock" name="hidden_stock"/>
 				<input type="hidden" id="days_count" name="days_count"/>
@@ -670,7 +718,7 @@ foreach($results as $result){
 							</div>
 							<div class="mid-row">
 								<label>Patient Name</label>
-								<input readonly="" id="patient_details"  class="validate[required]"/>
+								<input readonly="" id="patient_details"  class="validate[required]" />
 							</div>
 						</div>
 
@@ -683,7 +731,7 @@ foreach($results as $result){
 							<div class="mid-row">
 								<label><span class='astericks'>*</span>Purpose of Visit</label>
 
-								<select  type="text"name="purpose" id="purpose" class="validate[required]">
+								<select  type="text"name="purpose" id="purpose" class="validate[required]" style='width:100%;'>
 									<option value="">--Select One--</option>
 									<?php 
 									foreach($purposes as $purpose){
@@ -703,26 +751,28 @@ foreach($results as $result){
 							<div class="mid-row">
 								<label><span class='astericks'>*</span>Current Weight(kg)</label>
 
-								<input  type="text"name="weight" id="weight" class="validate[required]">
+								<input  type="text"name="weight" id="weight" class="validate[required]" >
 							</div>
 						</div>
 						<div class="max-row">
 							<div class="mid-row">
 								<label><span class='astericks'>*</span>Days to Next Appointment</label>
-								<input  type="text"name="days_to_next" id="days_to_next" class="validate[required]">
+								<input  type="text" name="days_to_next" id="days_to_next" class="validate[required]">
 							</div>
 							<div class="mid-row">
 								<label><span class='astericks'>*</span>Date of Next Appointment</label>
 
-								<input  type="text"name="next_appointment_date" id="next_appointment_date" class="validate[required]">
+								<input  type="text" name="next_appointment_date" id="next_appointment_date" class="validate[required]" >
 							</div>
 						</div>
                             
                             
                        <div class="max-row">
-						<span id="scheduled_patients" class="message"  style="display:none;background:#9CF;">
+                       	<br/>
+						<span id="scheduled_patients" style="display:none;background:#9CF;padding:5px;">
 							
 						</span>
+
 						</div>
 						<div class="max-row">
 							<div class="mid-row">
@@ -733,7 +783,7 @@ foreach($results as $result){
 
 							<div class="mid-row">
 								<label><span class='astericks'>*</span>Current Regimen</label>
-								<select type="text"name="current_regimen" id="current_regimen"  class="validate[required]">
+								<select type="text"name="current_regimen" id="current_regimen"  class="validate[required]" style='width:100%;' >
 									<option value="">-Select One--</option>
 										<?php 
 									       foreach($regimens as $regimen){
@@ -747,7 +797,7 @@ foreach($results as $result){
 							<div class="mid-row">
 								<div style="display:none" id="regimen_change_reason_container">
 									<label>Regimen Change Reason</label>
-									<select type="text"name="regimen_change_reason" id="regimen_change_reason">
+									<select type="text"name="regimen_change_reason" id="regimen_change_reason" >
 										<option value="">--Select One--</option>
 										 <?php
 										   foreach($regimen_changes as $changes){
@@ -761,11 +811,11 @@ foreach($results as $result){
 						<div class="max-row">
 							<div class="mid-row">
 								<label>Appointment Adherence (%)</label>
-								<input type="text"name="adherence" id="adherence">
+								<input type="text" name="adherence" id="adherence"/>
 							</div>
 							<div class="mid-row">
 								<label> Poor/Fair Adherence Reasons </label>
-								<select type="text"name="non_adherence_reasons" id="non_adherence_reasons" >
+								<select type="text"name="non_adherence_reasons" id="non_adherence_reasons"  style='width:100%;'>
 									<option value="">-Select One--</option>
 										<?php 
 									       foreach($non_adherence_reasons as $reasons){
@@ -800,13 +850,14 @@ foreach($results as $result){
 							<thead>
 							<th>Drug Dispensed</th>
 							<th>Quantity Dispensed</th>
-							<th>Pill Count<span class="green">(Expected)</span></th>
+							<!--<th>Pill Count<span class="green">(Expected)</span></th>-->
 							</thead>
 							<tbody>
 								<?php 
 								if($visits){
 								foreach($visits as $visit){
-									echo "<tr><td>".$visit['drug']."</td><td>".$visit['quantity']."</td><td class='exp_pill' drug_id='".$visit['drug_id']."' drug_val='".$visit['mos']."'>".$visit['mos']."</td></tr>";
+									echo "<tr><td>".$visit['drug']."</td><td style='text-align:center'>".$visit['quantity']."</td></tr>";
+								 //<td class='exp_pill' drug_id='".$visit['drug_id']."' drug_val='".$visit['mos']."'>".$visit['mos']."</td>
 								}
 								}
 								?>
@@ -816,7 +867,7 @@ foreach($results as $result){
 					</fieldset>
 				</div>
 
-				<div class="content-rowy" style="height:250px;overflow: scroll">
+				<div class="content-rowy" style="height:auto;">
 					<table border="0" class="data-table" id="drugs_table" style="">
 						<thead>
 							<th class="subsection-title" colspan="15">Select Drugs</th>
@@ -831,8 +882,8 @@ foreach($results as $result){
 							<th>Brand Name</th>
 							<th>Stock on Hand</th>
 							<th>Indication</th>
-							<th>Prev Pill Count</th>
-							<th>Next Pill Count</th>
+							<th><b>Expected</b><br/>Pill Count</th>
+							<th><b>Actual</b><br/> Pill Count</th>
 							<th>Comment</th>
 							<th>Missed Pills</th>
 							<th style="">Action</th>
@@ -864,7 +915,7 @@ foreach($results as $result){
 							<option value="0">None</option>
 							</select></td>
 							<td>
-							<input type="text" name="pill_count[]" class="pill_count input-small" />
+							<input type="text" name="pill_count[]" class="pill_count input-small" readonly="readonly" />
 							</td>
 							<td>
 							<input type="text" name="next_pill_count[]" class="next_pill_count input-small"  />
@@ -886,7 +937,7 @@ foreach($results as $result){
 				</div>
 				<div id="submit_section">
 					<input type="reset" class="btn confirm" id="reset" value="Reset Fields" />
-					<input form="dispense_form" id="btn_submit" class="btn confirm" id="submit" type="submit" value="Dispense Drugs"/>
+					<input form="dispense_form" id="btn_submit" class="btn confirm actual" id="submit" type="button" value="Dispense Drugs"/>
 				</div>
 			</form>
 

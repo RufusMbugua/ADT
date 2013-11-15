@@ -35,7 +35,7 @@ foreach ($expiries as $expiry) {
 				$("#regimen_change_reason").val("<?php echo @$result['regimen_change_reason'];?>"); 
 				$("#brand").val("<?php echo @$result['brand']; ?>");
 				$("#indication").val("<?php echo @$result['indication']; ?>");
-				$("#pill_count").val("<?php echo @$result['pill_count']; ?>");
+				$("#pill_count").val("<?php echo @$result['months_of_stock']; ?>");
 				$("#missed_pills").val("<?php echo @$result['missed_pills']; ?>");
 				$("#comment").val("<?php echo @$result['comment']; ?>");
 				
@@ -145,9 +145,17 @@ foreach ($expiries as $expiry) {
 		   	  $("#expiry").val("");
 			  $("#soh").val("");
 		   	  var drug = $(this).val();
+		   	  
               getDrugBatches(drug);
               getBrands(drug);
 		   });
+		   
+		   //Validate quantity dispensed
+		   $(".qty_disp").keyup(function() {
+				checkQtyDispense();
+			});
+			
+			
 		   
 		   function getDrugBatches(drug){
 		   	  var base_url="<?php echo base_url();?>";
@@ -175,6 +183,7 @@ foreach ($expiries as $expiry) {
 
 				    	getBatchInfo();
 				    }
+				    
 				});
 		   }
 		   
@@ -205,16 +214,18 @@ foreach ($expiries as $expiry) {
 		   
 		   function getBatchInfo(){
 		   	 var base_url="<?php echo base_url();?>";
+			 var stock_type='2';
 		   	 var drug=$("#drug").val();
 		   	 var batch=$("#batch").val();
-		   	 var link=base_url+"inventory_management/getBatchInfo/"+drug+"/"+batch;
+		   	 var link=base_url+"inventory_management/getBacthDetails";
 		   	 $.ajax({
 				    url: link,
 				    type: 'POST',
+					data: {"stock_type":stock_type,"selected_drug":drug,"batch_selected":batch},
 				    dataType: "json",
 				    success: function(data) {	
-				    		$("#expiry").val(data[0].expiry_date);
-				    	    $("#soh").val(data[0].balance);
+				    	$("#expiry").val(data[0].expiry_date);
+				    	$("#soh").val(data[0].balance);
 				    }
 				});
 		   }
@@ -223,6 +234,23 @@ foreach ($expiries as $expiry) {
 		   
 		   		  
 		});
+			function checkQtyDispense(){
+				var selected_value = $("#qty_disp").attr("value");
+				var stock_at_hand =  $("#soh").attr("value");
+				var stock_validity = stock_at_hand - selected_value;
+				if(stock_validity < 0) {
+					alert("Quantity Cannot Be larger Than Stock at Hand");
+					$("#qty_disp").css("background-color","red");
+					$("#qty_disp").addClass("input_error");
+					return false;	
+				}
+				else{
+					$("#qty_disp").css("background-color","white");
+					$("#qty_disp").removeClass("input_error");
+					return true;
+				}	
+				
+			}
 			 //Function to validate required fields
 		    function processData(form) {
 		          var form_selector = "#" + form;
@@ -230,7 +258,20 @@ foreach ($expiries as $expiry) {
 		            if(!validated) {
 	                   return false;
 		            }else{
-		            	return true;
+		            	//Validate quantity dispensed
+		            	var check=checkQtyDispense();
+		            	var last_row=$('#drugs_table tr:last');
+		            	if(check==false){
+		            		return false;
+		            	}
+		     			else if(last_row.find(".qty_disp").hasClass("input_error")){
+							alert("The quantity of the last commodity being dispensed is greater that the quantity available!");
+							return false;
+						}
+						else{
+							return true;
+						}
+		            	
 		            }
 		     }
 			
@@ -273,7 +314,7 @@ foreach ($expiries as $expiry) {
 					</div>
 					<div class="mid-row">
 						<label><span class='astericks'>*</span>Purpose of Visit</label>
-						<select type="text"name="purpose" id="purpose" class="validate[required]"/>
+						<select type="text"name="purpose" id="purpose" class="validate[required]" style="width:250px;"/>
 						<option value="">--Select One--</option>
 									<?php 
 									foreach($purposes as $purpose){
@@ -307,7 +348,7 @@ foreach ($expiries as $expiry) {
 						</div>
 						<div class="mid-row">
 							<label><span class='astericks'>*</span>Current Regimen</label>
-							<select name="current_regimen" id="current_regimen"  class="validate[required]"/>
+							<select name="current_regimen" id="current_regimen"  class="validate[required]" style="width:250px;"/>
 							<option value="">-Select One--</option>
 										<?php 
 									       foreach($regimens as $regimen){
@@ -320,7 +361,7 @@ foreach ($expiries as $expiry) {
 					<div class="max-row">
 						<div style="display:none" id="regimen_change_reason_container">
 							<label>Regimen Change Reason</label>
-							<select type="text"name="regimen_change_reason" id="regimen_change_reason" >
+							<select type="text"name="regimen_change_reason" id="regimen_change_reason" style="width:250px;">
 									<option value="">--Select One--</option>
 										 <?php
 										   foreach($regimen_changes as $changes){
@@ -337,7 +378,7 @@ foreach ($expiries as $expiry) {
 						</div>
 						<div class="mid-row">
 							<label> Poor/Fair Adherence Reasons </label>
-							<select type="text"name="non_adherence_reasons" id="non_adherence_reasons" >
+							<select type="text"name="non_adherence_reasons" id="non_adherence_reasons" style="width:250px;">
 								<option value="">-Select One--</option>
 										<?php 
 									       foreach($non_adherence_reasons as $reasons){
@@ -377,7 +418,7 @@ foreach ($expiries as $expiry) {
 					</td>
 					<td><select id="batch" name="batch" class="batch input-medium"></select></td>
 					<td>
-					<input type="text" id="expiry" name="expiry" class="expiry input-xlarge validate[required]" />
+					<input type="text" id="expiry" name="expiry" class="expiry input-xlarge validate[required]" style="width:100px;" />
 					</td>
 					<td>
 					<select id="dose" name="dose" class="expiry input-small">
@@ -424,7 +465,7 @@ foreach ($expiries as $expiry) {
 		</div>
 		<div id="submit_section">
 			<div class="btn-group">
-				<input type="submit" form="edit_dispense_form" class="btn" id="submit" name="submit" value="Save & go Back" />
+				<input type="submit" form="edit_dispense_form" class="btn actual" id="submit" name="submit" value="Save & go Back" />
 				<input type="submit" class="btn btn-danger" id="delete_btn" name="delete" value="Delete Record"/>
 			</div>
 		</div>

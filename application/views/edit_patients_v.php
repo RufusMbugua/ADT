@@ -47,6 +47,7 @@ foreach($results as $result){
 			if($("#gender").val()==2){
 				$("#pregnant_view").show();
 			}
+			$("#pregnant").val("<?php echo $result['pregnant'];?>");
 			
 			
 			$('#start_age').val(getStartAge("<?php echo $result['dob'];?>","<?php echo $result['date_enrolled'];?>"));
@@ -96,9 +97,13 @@ foreach($results as $result){
 			$("textarea[name='other_allergies_listing']").not(this).attr("disabled", "true");
 			$("textarea[name='support_group_listing']").not(this).attr("disabled", "true");
 			
-				
 			//Select Other Illnesses Methods Selected
-			var other_illnesses='<?php echo $result['other_illnesses'];?>';
+			var my_illnesses=<?php echo $result['other_illnesses'];?>;
+			var other_illnesses='';
+			
+			$.each(my_illnesses, function(i, v){
+				other_illnesses +=v+","
+			});
 			
 			if (other_illnesses.indexOf(',') == -1) {
               other_illnesses=other_illnesses+",";
@@ -118,7 +123,7 @@ foreach($results as $result){
 					}
 					$("#other_chronic").val(other_sickness.substring(1));
 				}
-
+           
 			if($("#other_chronic").val()){
 				$("input[name='other_other']").not(this).attr("checked", "true");
 			    $("textarea[name='other_chronic']").not(this).removeAttr("disabled");		
@@ -485,6 +490,7 @@ foreach($results as $result){
 	            if(!validated) {
                    return false;
 	            }else{
+	            	$(".btn").attr("disabled","disabled");
 	            	return true;
 	            }
 	       }
@@ -612,7 +618,7 @@ foreach($results as $result){
 			<div class="max-row">
 				<div class="mid-row">
 				<label> Patient's Phone Contact(s)</label>
-				<input  type="text"  name="phone" id="phone" value="" placeholder="e.g 0722123456">
+				<input  type="text"  name="phone" id="phone" value="" class="phone" placeholder="e.g 0722123456">
 			    </div>
 				<div class="mid-row">
 				<label > Receive SMS Reminders</label>
@@ -629,7 +635,7 @@ foreach($results as $result){
 			</div>
 			<div class="max-row">
 				<label> Patient's Alternate Contact(s)</label>
-				<input type="text" name="alternate" id="alternate" value="">
+				<input type="text" name="alternate" id="alternate" value="" class="phone" placeholder="e.g 0722123456">
 			</div>
 			<div class="max-row">
 				<label>Does Patient belong to any support group?</label>
@@ -876,7 +882,7 @@ foreach($results as $result){
 		</fieldset>
 	</div>
 	<div class="button-bar">
-			<input form="edit_patient_form" type="submit" class="btn" value="Edit" name="save"/>
+			<input form="edit_patient_form" type="submit" class="btn actual" value="Update Patient Info" name="save"/>
 	</div>
 
 </form>

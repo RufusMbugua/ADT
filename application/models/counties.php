@@ -21,10 +21,17 @@ class Counties extends Doctrine_Record {
 		$districts = $query -> execute();
 		return $districts;
 	}
+
 	public function getAll() {
 		$query = Doctrine_Query::create() -> select("*") -> from("Counties");
 		$districts = $query -> execute();
 		return $districts;
+	}
+
+	public function getActive() {
+		$query = Doctrine_Query::create() -> select("*") -> from("Counties") -> where("active='1'");
+		$counties = $query -> execute(array(), Doctrine::HYDRATE_ARRAY);
+		return $counties;
 	}
 
 }//end class

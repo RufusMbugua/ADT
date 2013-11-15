@@ -5,7 +5,24 @@
 				$("#table_list").multiselect().multiselectfilter();
 				var table_array =['tblARVDrugStockMain', 'tblCurrentStatus', 'tblDose', 'tblDrugsInRegimen', 'tblGenericName', 'tblIndication', 'tblReasonforChange', 'tblRegimen', 'tblRegimenCategory', 'tblSecurity', 'tblARTPatientMasterInformation', 'tblStockTransactionType', 'tblTypeOfService', 'tblVisitTransaction', 'tblSourceOfClient', 'tblARTPatientTransactions', 'tblARVDrugStockTransactions'];
 				var target_array =['drugcode', 'patient_status', 'dose', 'regimen_drug', 'generic_name', 'opportunistic_infection', 'regimen_change_purpose', 'regimen', 'regimen_category', 'users', 'patient','transaction_type', 'regimen_service_type', 'visit_purpose', 'patient_source','patient_visit', 'drug_stock_movement'];
+				
+				$("#dbname").change(function(){
+					var dbname=$(this).val();
+					var link=base_url+"migration_management/checkDB/"+dbname
+					$.ajax({
+						url : link,
+						type : 'POST', 
+						success : function(data) {
+							      if(data==1){
+							      	alert("Database Cannot be Migrated")
+							      }
+								 }		 
+				    });			
+				});
+				
 				$("#migrate").click(function(){
+					var dbname = $("#dbname").val();
+				if(dbname) {
 					var selected_table=$("select#table_list").val();
 					var checked_value=$("input[name='tablename']:checked").val();
 					if(checked_value==0){
@@ -16,9 +33,9 @@
 								var index =table_array.indexOf(table_name);
 								var target_name=target_array[index];
 								//Check Migration Log							
-								checklog(table_name,target_name);
+								checklog(dbname,table_name,target_name);
                          });
-					}else{
+				}else{
 						//Custom Select
 						if(selected_table){
 							selected_table=selected_table.toString();
@@ -28,10 +45,14 @@
 								var index =table_array.indexOf(table_name);
 								var target_name=target_array[index];
 								//Check Migration Log
-								checklog(table_name,target_name);
+								checklog(dbname,table_name,target_name);
                             });
 						}						  
-					}
+				  }
+				}else{
+					alert("No Database Selected");
+					return false;
+				}
 					
 				});
 				
@@ -42,8 +63,8 @@
 					$("#table_select").hide();
 				});
 				
-				function simpleMigration(table_name,target_name,offset){
-				   var link = base_url + "migration_management/simplemigrate/"+table_name+"/"+target_name+"/"+offset;
+				function simpleMigration(dbname,table_name,target_name,offset){
+				   var link = base_url + "migration_management/simplemigrate/"+dbname+"/"+table_name+"/"+target_name+"/"+offset;
 					$.ajax({
 						url : link,
 						type : 'POST',
@@ -52,8 +73,8 @@
 						}
 					});
 				}
-				function advancedMigration(table_name,target_name,count,offset){
-				   var link = base_url + "migration_management/countRecords/"+table_name;
+				function advancedMigration(dbname,table_name,target_name,count,offset){
+				   var link = base_url + "migration_management/countRecords/"+dbname+"/"+table_name;
 				   var percentage=0;
 				   var viewpercentage="";
 				   if(table_name=="tblARTPatientTransactions"){
@@ -76,8 +97,8 @@
 				    });
 				}
 
-				function recursive(table_name,target_name,count,total_records) {
-					var link = base_url + "migration_management/advancedmigrate/" + table_name + "/" + target_name + "/" + count;
+				function recursive(dbname,table_name,target_name,count,total_records) {
+					var link = base_url + "migration_management/advancedmigrate/"+dbname+"/"+ table_name + "/" + target_name + "/" + count;
 						$.ajax({
 						  url : link,
 						  type : 'POST',
@@ -90,12 +111,12 @@
 						    if(table_name=="tblARTPatientTransactions"){
 				   	           var percent="ppercentage";
 				   	           if(count<total_records){
-								recursive(table_name,target_name,offset,total_records); 
+								recursive(dbname,table_name,target_name,offset,total_records); 
 							   }
 				            }else if(table_name=="tblARVDrugStockTransactions"){
 				   	           var percent="dpercentage";
 				   	           if(count<total_records){
-								recursive(table_name,target_name,offset,total_records); 
+								recursive(dbname,table_name,target_name,offset,total_records); 
 							  }
 				            }
 				            $("#"+percent).text(percentage + '%');
@@ -104,24 +125,23 @@
 						});
 				}
 
-				function checklog(table_name,target_name){
+				function checklog(dbname,table_name,target_name){
 					var link = base_url + "migration_management/checklog/" + target_name;
 						$.ajax({
 						  url : link,
 						  type : 'POST',
-						  success : function(data) {
-						    
+						  success : function(data) {					    
 						     if(table_name=='tblARTPatientTransactions' || table_name=='tblARVDrugStockTransactions'){
 						     	    var selected_data=data.toString();
 							        var selected_array = selected_data.split(",");
 							        var count=parseFloat(selected_array[0]);
 							        var offset=parseFloat(selected_array[1]);
                                 	//If patient and drug transactions(Advanced Migration)
-                                	advancedMigration(table_name,target_name,count,offset);
+                                	advancedMigration(dbname,table_name,target_name,count,offset);
                                 }else{
                                 	var offset=parseFloat(data)
                                 	//Other tables(Simple Migration)
-                                	simpleMigration(table_name,target_name,offset);
+                                	simpleMigration(dbname,table_name,target_name,offset);
                                }
 						  }
 						});
@@ -134,7 +154,11 @@
 				width:40%;
 			}
 			#output{
-				width:100%;
+				width:600px;
+				height:200px;
+				background:#FFF;
+				overflow:scroll;
+				font-family:Verdana;
 			}
 			#table_select{
 				display:none;
@@ -143,10 +167,11 @@
 			}
 			#table_list{
 				width:250px;
+				zoom:85%;
 			}
 		</style>
 
-		<div class="full-content" id="table_view" style="background:#9CF">
+		<div class="full-content" id="table_view" style="background:#9CF;">
 	    <div>
 		<ul class="breadcrumb">
 		  <li><a href="<?php echo site_url().'home_controller/home' ?>"><i class="icon-home"></i><strong>Home</strong></a> 
@@ -155,34 +180,52 @@
 		</ul>
 	     </div>
 			<fieldset>
-				<legend class="leg">
+				   <legend class="leg">
 						<p>
 							webADT Migration Configuration
 						</p>
 					</legend>
-						<p>
-						All <input type="radio" name="tablename" id="tablename" checked="checked" value="0"/>
-						Custom <input type="radio" name="tablename" id="tablecustom" value="1"/>
-						</p>
-						<div id="table_select">
-						Tables
-						<select id="table_list" multiple="multiple">
+					  <p>
+					 <div style="padding:10px;display:inline-block;">
+					 	<div class="max-row"><h3>Database Name</h3></div>	
+					 	<div class="max-row">
+					 	<select id="dbname" name="dbname" style="width:400px;">
+					 		<option value="">-Select database-</option>
 							<?php 
-							 foreach($tables as $table){
-							 	echo "<option value='".$table."'> ". $table." </option>";
+							 foreach($db_tables as $db_table){
+							 	echo "<option value='".$db_table['SCHEMA_NAME']."'> ". $db_table['SCHEMA_NAME']." </option>";
+							 }
+							?>
+						</select>
+					 	</div>	
+						<div class="max-row"><h3>Type of Migration</h3></div>	
+						<div class="max-row">			
+						Full
+						<input type="radio" name="tablename" id="tablename" checked="checked" value="0"/>
+						Custom
+						<input type="radio" name="tablename" id="tablecustom" value="1"/>
+						<div id="table_select">
+						<label>Tables</label>
+						<select id="table_list" multiple="multiple" style="width:400px;">
+							<?php 
+							 foreach($tables as $col=>$table){
+							 	echo "<option value='".$table."'> ". $col." </option>";
 							 }
 							?>
 						</select>
 						</div>
+						</div>
 						<div class="button-bar">
-						<p></p>
 						<div class="btn-group">
 							<input type="submit" value="Migrate"  id='migrate'" class="btn"/>
 						</div>
-						<p>
-						<textarea id="output"  disabled="disabled" cols="100" rows="10">
-					          Migration Progress...
-				        </textarea>
-				        </p>
+						</div>
+						<div class="max-row"><hr/></div>
+						<div class="max-row">
+						<div id="output">
+					         Migration Progress... 
+				        </div>
+				        </div>
+					</div>
 			</fieldset>
 		</div>

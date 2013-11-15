@@ -341,8 +341,7 @@
 				}
 
 				//calculate adherence by pill count
-				if(dose_frequency == 1) {
-
+				if(dose_frequency == 1) {             
 					if(pill_count <= 0) {
 						pill_total_100++;
 						if(gender == 1) {

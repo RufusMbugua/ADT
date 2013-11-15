@@ -15,6 +15,12 @@ class Drug_Source extends Doctrine_Record {
 		$infections = $query -> execute();
 		return $infections;
 	}
+	
+	public function getAllHydrated() {
+		$query = Doctrine_Query::create() -> select("*") -> from("Drug_Source") -> where("Active", "1");
+		$infections = $query -> execute(array(), Doctrine::HYDRATE_ARRAY);
+		return $infections;
+	}
 
 	public function getTotalNumber() {
 		$query = Doctrine_Query::create() -> select("count(*) as Total_Sources") -> from("Drug_Source")->where("Active='1'") ;

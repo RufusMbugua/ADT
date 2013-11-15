@@ -198,20 +198,35 @@ class Patient_Management extends MY_Controller {
 		echo json_encode($output);
 	}
 
+	public function extract_illness($illness_list = "") {
+		$illness_array = explode(",", $illness_list);
+		$new_array=array();
+		foreach ($illness_array as $index => $illness) {
+			if ($illness == null) {
+				unset($illness_array[$index]);
+			}else{
+				$illness=str_replace("\n", "", $illness);
+				$new_array[]=trim($illness);
+			}
+		}
+		return json_encode($new_array);
+	}
+
 	public function viewDetails($record_no) {
-		$this->session->set_userdata('record_no',$record_no);
+		$this -> session -> set_userdata('record_no', $record_no);
 		$patient = "";
 		$facility = "";
 		$sql = "select * from patient where id='$record_no'";
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
 		if ($results) {
+			$results[0]['other_illnesses'] = $this -> extract_illness($results[0]['other_illnesses']);
 			$data['results'] = $results;
 			$patient = $results[0]['patient_number_ccc'];
 			$facility = $this -> session -> userdata("facility");
 		}
 		//Patient History
-		$sql = "SELECT pv.dispensing_date, v.name AS visit, u.Name AS unit, pv.dose, pv.duration, pv.indication, pv.id AS record, d.drug, pv.quantity, pv.current_weight, pv.current_height, r1.regimen_desc as last_regimen, r.regimen_desc, pv.batch_number, pv.pill_count, pv.adherence, pv.user, pv.regimen_change_reason FROM patient_visit pv LEFT JOIN drugcode d ON pv.drug_id = d.id LEFT JOIN drug_unit u ON d.unit = u.id LEFT JOIN regimen r ON pv.regimen = r.id LEFT JOIN regimen r1 ON pv.last_regimen = r1.id LEFT JOIN visit_purpose v ON pv.visit_purpose = v.id WHERE pv.patient_id =  '$patient' AND pv.facility =  '$facility' ORDER BY dispensing_date DESC";
+		$sql = "SELECT pv.dispensing_date, v.name AS visit, u.Name AS unit, pv.dose, pv.duration, pv.indication, pv.id AS record, d.drug, pv.quantity, pv.current_weight, pv.current_height, r1.regimen_desc as last_regimen, r.regimen_desc, pv.batch_number, pv.pill_count, pv.adherence, pv.user, pv.regimen_change_reason FROM patient_visit pv LEFT JOIN drugcode d ON pv.drug_id = d.id LEFT JOIN drug_unit u ON d.unit = u.id LEFT JOIN regimen r ON pv.regimen = r.id LEFT JOIN regimen r1 ON pv.last_regimen = r1.id LEFT JOIN visit_purpose v ON pv.visit_purpose = v.id WHERE pv.patient_id =  '$patient' AND pv.facility =  '$facility' AND pv.active='1' ORDER BY dispensing_date DESC";
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
 		if ($results) {
@@ -242,6 +257,7 @@ class Patient_Management extends MY_Controller {
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
 		if ($results) {
+			$results[0]['other_illnesses'] = $this -> extract_illness($results[0]['other_illnesses']);
 			$data['results'] = $results;
 		}
 		$data['record_no'] = $record_no;
@@ -263,7 +279,6 @@ class Patient_Management extends MY_Controller {
 	}
 
 	public function save() {
-
 		$family_planning = "";
 		$other_illness_listing = "";
 		$patient = "";
@@ -337,12 +352,13 @@ class Patient_Management extends MY_Controller {
 		$new_patient -> save();
 
 		$patient = $this -> input -> post('patient_number', TRUE);
+		$direction = $this -> input -> post('direction', TRUE);
 
-		if ($_POST['save'] == "Save") {
+		if ($direction == 0) {
 			$this -> session -> set_userdata('msg_success', 'Patient: ' . $this -> input -> post('first_name', TRUE) . " " . $this -> input -> post('last_name', TRUE) . ' was Saved');
 			redirect("patient_management");
-		} else if ($_POST['save'] == "Dispense") {
-			redirect("patient_management/dispense/$patient");
+		} else if ($direction == 1) {
+			redirect("dispensement_management/dispense/$patient");
 		}
 	}
 
@@ -486,7 +502,7 @@ left join supporter s on s.id=p.supported_by
 left join regimen_service_type rst on rst.id=p.service
 left join patient_status pst on pst.id=p.current_status
 left join facilities f on f.facilitycode=p.transfer_from
-WHERE facility_code='$facility_code' 
+WHERE facility_code='$facility_code'
 ORDER BY p.patient_number_ccc ASC";
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
@@ -672,20 +688,62 @@ ORDER BY p.patient_number_ccc ASC";
 				if ($result['missed_pills'] == "") {
 					$result['missed_pills'] = "-";
 				}
-				if ($result['missed_pills'] <= 0) {
-					$self_reporting = "100%";
-				} else if ($result['missed_pills'] <= 3 && $result['missed_pills'] > 0) {
-					$self_reporting = "≥95%";
-				} else if ($result['missed_pills'] >= 4 && $result['missed_pills'] <= 8) {
-					$self_reporting = "84-94%";
-				} else if ($result['missed_pills'] >= 9) {
-					$self_reporting = "<85%";
+				//Calculate Adherence for Missed Pills
+				if ($result['frequency'] == 1) {
+					if ($result['missed_pills'] <= 0) {
+						$self_reporting = "100%";
+					} else if ($result['missed_pills'] < 2 && $result['missed_pills'] > 0) {
+						$self_reporting = "≥95%";
+					} else if ($result['missed_pills'] >= 2 && $result['missed_pills'] <= 4) {
+						$self_reporting = "84-94%";
+					} else if ($result['missed_pills'] >= 5) {
+						$self_reporting = "<85%";
+					}
+				} else if ($result['frequency'] == 2) {
+					if ($result['missed_pills'] <= 0) {
+						$self_reporting = "100%";
+					} else if ($result['missed_pills'] <= 3 && $result['missed_pills'] > 0) {
+						$self_reporting = "≥95%";
+					} else if ($result['missed_pills'] >= 4 && $result['missed_pills'] <= 8) {
+						$self_reporting = "84-94%";
+					} else if ($result['missed_pills'] >= 9) {
+						$self_reporting = "<85%";
+					}
+				} else {
+					$self_reporting = "-";
 				}
-				if ($result['adherence'] == "") {
+
+				//Calculate Adherence for Pill Count
+				$pill_count = ($result['pill_count'] - $result['months_of_stock']);
+				if ($result['frequency'] == 1) {
+					if ($pill_count <= 0) {
+						$pill_count_reporting = "100%";
+					} else if ($pill_count < 2 && $pill_count > 0) {
+						$pill_count_reporting = "≥95%";
+					} else if ($pill_count >= 2 && $pill_count <= 4) {
+						$pill_count_reporting = "84-94%";
+					} else if ($pill_count >= 5) {
+						$pill_count_reporting = "<85%";
+					}
+				} else if ($result['frequency'] == 2) {
+					if ($pill_count <= 0) {
+						$pill_count_reporting = "100%";
+					} else if ($pill_count <= 3 && $pill_count > 0) {
+						$pill_count_reporting = "≥95%";
+					} else if ($pill_count >= 4 && $pill_count <= 8) {
+						$pill_count_reporting = "84-94%";
+					} else if ($pill_count >= 9) {
+						$pill_count_reporting = "<85%";
+					}
+				} else {
+					$pill_count_reporting = "-";
+				}
+
+				if ($result['adherence'] == " ") {
 					$result['adherence'] = "-";
 				}
 
-				$dyn_table .= "<tbody><tr><td>" . date('d-M-Y', strtotime($result['dispensing_date'])) . "</td><td>" . $result['drug'] . "</td><td align='center'>" . $result['quantity'] . "</td><td align='center'>" . $result['pill_count'] . "</td><td align='center'>" . $result['quantity'] . "</td><td align='center'>" . $result['missed_pills'] . "</td><td align='center'>" . $result['adherence'] . "</td><td align='center'>" . $self_reporting . "</td></tr></tbody>";
+				$dyn_table .= "<tbody><tr><td>" . date('d-M-Y', strtotime($result['dispensing_date'])) . "</td><td>" . $result['drug'] . "</td><td align='center'>" . $result['quantity'] . "</td><td align='center'>" . ($result['pill_count'] - $result['months_of_stock']) . "</td><td align='center'>" . $result['missed_pills'] . "</td><td align='center'>" . $pill_count_reporting . "</td><td align='center'>" . $self_reporting . "</td><td align='center'>" . $result['adherence'] . "</td></tr></tbody>";
 			}
 		}
 		echo $dyn_table;
@@ -694,7 +752,7 @@ ORDER BY p.patient_number_ccc ASC";
 	public function getRegimenChange($patient_no) {
 		$dyn_table = "";
 		$facility = $this -> session -> userdata("facility");
-		$sql = "select dispensing_date, r1.regimen_desc as current_regimen, r2.regimen_desc as previous_regimen, if(rc.name is null,pv.regimen_change_reason,rc.name) as reason from patient_visit pv left join regimen r1 on pv.regimen = r1.id left join regimen r2 on pv.last_regimen = r2.id left join regimen_change_purpose rc on pv.regimen_change_reason = rc.id where pv.patient_id = '$patient_no' and pv.facility = '$facility' and pv.regimen != pv.last_regimen group by dispensing_date,pv.regimen";
+		$sql = "select dispensing_date, r1.regimen_desc as current_regimen, r2.regimen_desc as previous_regimen, if(rc.name is null,pv.regimen_change_reason,rc.name) as reason from patient_visit pv left join regimen r1 on pv.regimen = r1.id left join regimen r2 on pv.last_regimen = r2.id left join regimen_change_purpose rc on pv.regimen_change_reason = rc.id where pv.patient_id = '$patient_no' and pv.facility = '$facility' and pv.regimen != pv.last_regimen group by dispensing_date,pv.regimen order by pv.dispensing_date desc";
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
 		if ($results) {
@@ -712,8 +770,9 @@ ORDER BY p.patient_number_ccc ASC";
 				} elseif ($result['reason'] == "null") {
 					$result['reason'] = "-";
 				}
-
-				$dyn_table .= "<tbody><tr><td>" . date('d-M-Y', strtotime($result['dispensing_date'])) . "</td><td>" . $result['current_regimen'] . "</td><td align='center'>" . $result['previous_regimen'] . "</td><td align='center'>" . $result['reason'] . "</td></tr></tbody>";
+				if ($result['current_regimen'] == "-") {
+					$dyn_table .= "<tbody><tr><td>" . date('d-M-Y', strtotime($result['dispensing_date'])) . "</td><td>" . $result['current_regimen'] . "</td><td align='center'>" . $result['previous_regimen'] . "</td><td align='center'>" . $result['reason'] . "</td></tr></tbody>";
+				}
 			}
 		}
 		echo $dyn_table;

@@ -74,6 +74,7 @@
 
 <th class="col_adjustments">Adjustments (Borrowed from or Issued out to Other Facilities)</th>
 <th class="number">End of Month Physical Count</th>
+<th class="number" colspan="2">Quantity to Expire in less than 6 months</th>
 
 <!-- aggr_consumed/on_hand -->
 <th class="number">Qty required for RESUPPLY</th>
@@ -90,6 +91,8 @@
 
 <th>' . $unit . '</th> <!-- adjustments -->
 <th>' . $unit . '</th> <!-- count -->
+<th>'.$unit.'</th> <!-- expire -->
+<th>mm-yy</th> <!-- expire -->
 
 <!-- aggr_consumed/on_hand -->
 
@@ -103,8 +106,9 @@
 <th>D</th> <!-- losses -->
 <th>E</th> <!-- adjustments -->
 <th>F</th> <!-- count -->
-<th>G</th> <!-- count -->
-
+<th>G</th> <!-- expire -->
+<th>H</th> <!-- expire -->
+<th>I</th> <!-- count -->
 <!-- aggr_consumed/on_hand -->
 
 </tr>
@@ -136,6 +140,8 @@ $counter = 0;
 					<td class="number calc_count"><?php echo number_format((double)$commodity -> Losses);?></td>
 					<td class="number calc_count"><?php echo number_format((double)$commodity -> Adjustments);?></td>
 					<td class="number calc_resupply col_count"><?php echo number_format((double)$commodity -> Count);?></td>
+					<td class="number calc_expire_qty col_exqty"><?php echo number_format((double)$commodity -> Aggr_Consumed);?></td>
+					<td class="number calc_expire_period col_experiod"><?php echo $commodity -> Aggr_On_Hand;?></td>
 					<!-- aggregate -->
 					<td class="number col_resupply"><?php echo number_format((double)$commodity -> Resupply);?></td>
 				</tr>
@@ -152,12 +158,12 @@ $counter = 0;
 			<table class="table table-bordered">
 				<thead>
 					<tr>
-						<th>Date</th><th>Made By</th><th>Access Level</th>
+						<th>Last Update</th><th>Made By</th><th>Access Level</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
-						<td><span class="green"><?php echo date('l d-M-Y h:i:s a', $comment -> Timestamp);?></span></td><td><span class="green"><?php echo $comment -> User_Object -> Name;?></span></td><td><span class="green"><?php echo $comment -> User_Object -> Access -> Level_Name;?></span></td>
+				<td><span class="green"><?php echo date('l d-M-Y h:i:s a', $comment -> Timestamp);?></span></td><td><span class="green"><?php if($comment -> User_Object -> Name){echo $comment -> User_Object -> Name;}else{echo $comment->User;}?></span></td><td><span class="green"><?php  if($comment -> User_Object -> Access -> Level_Name){echo $comment -> User_Object -> Access -> Level_Name;}else{ echo "Facility Administrator";}?></span></td>
 					</tr>
 				</tbody>
 			</table>

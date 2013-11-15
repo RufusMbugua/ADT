@@ -87,3 +87,70 @@
 </div>
 <!-- Modal edit change password end-->
 
+<!-- Modal for synchronizing balances -->
+<div id="drug_stock_balance_synch" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">  
+    <div class="modal-header">
+	    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+	    <h3 id="myModalLabel">Synchronization - Stock Balances</h3>
+	</div>
+	<div class="modal-body">  
+		<span class="alert-info ">Please wait until the process is complete!</span>
+        <div class="span5">
+        	<!-- 
+	    	<div id="div_tot_drugs" style="display: none">
+	    		Number of drugs :<strong><span id="tot_drugs"></span></strong>
+	    	</div> 
+	    	-->
+	    	<p>
+		    <div class="progress progress_pharmacy_dsm progress-striped active">  
+			  <div class="bar bar_dcb" style="width: 0%;">Drug Consumption</div> 
+			</div>
+			</p>
+		    <p> 
+		    <div class="progress progress_store progress-striped active">  
+			  <div class="bar bar_dsb bar_store" style="width: 0%;">Main Store - Stock balance</div> 
+			</div>  
+			</p> 
+			<p>
+		    <div class="progress progress_pharmacy progress-striped active">  
+			  <div class="bar bar_dsb bar_pharmacy" style="width: 0%;">Pharmacy - Stock balance</div> 
+			</div>
+			</p>
+			 <p> 
+		    <div class="progress progress_store_dsm progress-striped active">  
+			  <div class="bar bar_dsm bar_store_dsm" style="width: 0%;">Main Store - Stock transactions</div> 
+			</div>  
+			</p> 
+			<p>
+		    <div class="progress progress_pharmacy_dsm progress-striped active">  
+			  <div class="bar bar_dsm bar_pharmacy_dsm" style="width: 0%;">Pharmacy - Stock transactions</div> 
+			</div>
+			</p>
+			
+			<a class="sync_complete" href="#"></a>
+	    </div>  
+	    <div class="modal-footer">
+		   <button class="btn" data-dismiss="modal" aria-hidden="true">Done</button>
+		</div>
+    </div>  
+</div>
+<!--  Modal for synchronizing balances end  -->
+
+
+
+<!-- Confirmation message before synchronizing drug stock movement balance-->
+<div id="confirmbox" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-header">
+	    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+	    <h3 id="myModalLabel">Confirm before proceed</h3>
+	</div>
+	<div class="modal-body">
+        <p id="confirmMessage" >
+        	Please make sure you synchronize the <i><strong>stock balance</strong></i> before proceeding.
+        </p>
+    </div>
+    <div class="modal-footer">
+        <button class="btn" id="confirmFalse" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        <button class="btn btn-primary" id="confirmTrue" data-dismiss="modal" aria-hidden="true">Proceed</button>
+    </div>
+</div>

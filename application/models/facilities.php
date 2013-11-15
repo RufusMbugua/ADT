@@ -25,6 +25,7 @@ class Facilities extends Doctrine_Record {
 		$this -> hasOne('District as Parent_District', array('local' => 'district', 'foreign' => 'id'));
 		$this -> hasOne('Counties as County', array('local' => 'county', 'foreign' => 'id'));
 		$this -> hasOne('Facility_Types as Type', array('local' => 'facilitytype', 'foreign' => 'id'));
+		$this -> hasOne('Suppliers as supplier', array('local' => 'supplied_by', 'foreign' => 'id'));
 	}
 
 	public function getDistrictFacilities($district) {
@@ -98,6 +99,11 @@ class Facilities extends Doctrine_Record {
 	}
 	public static function getCodeFacility($id) {
 		$query = Doctrine_Query::create() -> select("*") -> from("Facilities") -> where("facilitycode = '$id'");
+		$facility = $query -> execute();
+		return $facility[0];
+	}
+	public static function getSupplier($id){
+		$query = Doctrine_Query::create() -> select("supplied_by") -> from("Facilities") -> where("facilitycode = '$id'");
 		$facility = $query -> execute();
 		return $facility[0];
 	}

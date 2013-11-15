@@ -463,7 +463,7 @@ class admin_management extends MY_Controller {
 	public function remove($facilitycode = "") {
 		$sql = "update facilities set parent='' where facilitycode='$facilitycode'";
 		$this -> db -> query($sql);
-		$this -> session -> set_userdata('msg_error', ' Fcaility No:' . $facilitycode . ' was removed as a Satellite');
+		$this -> session -> set_userdata('msg_error', ' Facility No:' . $facilitycode . ' was removed as a Satellite');
 		$this -> session -> set_userdata('default_link', 'addSatellite');
 		redirect("home_controller/home");
 	}

@@ -13,8 +13,156 @@ class Facilitydashboard_Management extends MY_Controller {
 		$this -> load -> database();
 	}
 
-	public function index() {
+	public function error_correction() {
+		$overall_total = 0;
+		$error_array = array();
+		$temp = "";
 
+		/*Patients without Gender*/
+		$sql['Patients without Gender'] = "SELECT p.patient_number_ccc,p.gender,p.id
+										   FROM patient p 
+										   LEFT JOIN gender g on g.id=p.gender
+										   WHERE (p.gender=' ' 
+										   OR p.gender='' 
+										   OR p.gender='null' 
+										   OR p.gender is null)
+										   AND p.active='1'
+										   GROUP BY p.patient_number_ccc;";
+
+		/*Patients without DOB*/
+		$sql['Patients without DOB'] = "SELECT p.patient_number_ccc,p.dob,p.id
+										FROM patient p 
+										WHERE (p.dob=' ' 
+										OR p.dob='' 
+										OR p.dob='null' 
+										OR p.dob is null)
+										AND p.active='1'
+										GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Appointment*/
+		$sql['Patients without Appointment'] = "SELECT p.patient_number_ccc, p.nextappointment, ps.Name AS current_status,p.id
+											   FROM patient p
+											   LEFT JOIN patient_status ps ON ps.id = p.current_status
+											   WHERE(p.nextappointment = ' '
+											   OR p.nextappointment =  ''
+											   OR p.nextappointment =  'null'
+											   OR p.nextappointment IS NULL)
+											   AND p.active = '1'
+											   AND ps.Name LIKE '%active%'
+											   AND p.active='1'
+											   GROUP BY p.patient_number_ccc;";
+		/*Patients without Current Regimen*/
+		$sql['Patients without Current Regimen'] = "SELECT p.patient_number_ccc,p.current_regimen,CONCAT_WS(' | ',r.regimen_code,r.regimen_desc) as regimen,p.id
+												FROM patient p 
+												LEFT JOIN regimen r ON r.id=p.current_regimen
+												WHERE (p.current_regimen=' '
+												OR p.current_regimen=''
+												OR p.current_regimen is null
+												OR p.current_regimen='null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+		/*Patients without Start Regimen*/
+		$sql['Patients without Start Regimen'] = "SELECT p.patient_number_ccc, p.start_regimen, CONCAT_WS(  ' | ', r.regimen_code, r.regimen_desc ) AS regimen,p.id
+												FROM patient p
+												LEFT JOIN regimen r ON r.id = p.start_regimen
+												WHERE (p.start_regimen =  ' '
+												OR p.start_regimen =  ''
+												OR p.start_regimen IS NULL 
+												OR p.start_regimen =  'null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+		/*Patients without Current Status*/
+		$sql['Patients without Current Status'] = "SELECT p.patient_number_ccc,p.current_status,ps.Name as status,p.id
+												FROM patient p
+												LEFT JOIN patient_status ps ON ps.id=p.current_status
+												WHERE(p.current_status=' '
+												OR p.current_status=''
+												OR p.current_status is null
+												OR p.current_status='null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Service Line*/
+		$sql['Patients without Current Status'] = "SELECT p.patient_number_ccc,p.service,rst.name as status,p.id
+												FROM patient p
+												LEFT JOIN regimen_service_type rst ON rst.id=p.service
+												WHERE(p.service=' '
+												OR p.service=''
+												OR p.service is null
+												OR p.service='null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Duplicate Patient Numbers*/
+		$sql['Duplicate Patient Numbers'] = "SELECT p.patient_number_ccc,count(p.patient_number_ccc) as total,p.id
+											FROM patient p
+											WHERE p.active='1'
+											GROUP by p.patient_number_ccc
+											HAVING(total >1);";
+
+		/*Patients without Enrollment date*/
+		$sql['Patients without Enrollment date'] = "SELECT p.patient_number_ccc,p.id,p.date_enrolled
+												FROM patient p
+												WHERE char_length(p.date_enrolled)<10
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Status Change date*/
+		$sql['Patients without Status Change date'] = "SELECT p.patient_number_ccc,p.id,p.status_change_date
+												FROM patient p
+												WHERE char_length(p.status_change_date)<10
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Start Regimen date*/
+		$sql['Patients without Start Regimen date'] = "SELECT p.patient_number_ccc,p.id,p.start_regimen_date
+												FROM patient p
+												WHERE char_length(p.start_regimen_date)<10
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients With Incorrect Current Regimens*/
+		$sql['Patients with Incorrect Current Regimens'] = "SELECT p.id,p.patient_number_ccc, p.first_name, p.last_name, p.service, p.current_regimen, r.regimen_desc, rst1.Name AS FIRST,rst2.Name AS SECOND 
+														FROM patient p
+														LEFT JOIN regimen r ON r.id = p.current_regimen
+														LEFT JOIN regimen_service_type rst1 ON rst1.id = p.service
+														LEFT JOIN regimen_service_type rst2 ON rst2.id = r.type_of_service
+														WHERE rst1.id != rst2.id
+														GROUP BY p.patient_number_ccc;";
+
+		foreach ($sql as $i => $q) {
+			$q = $this -> db -> query($q);
+			if ($this -> db -> affected_rows() > 0) {
+				$overall_total += $this -> db -> affected_rows();
+			}
+		}
+		if ($overall_total > 0) {
+			$temp_link = $order_link = site_url('auto_management/error_fix');
+			$temp = "<li><a href='" . $temp_link . "'><i class='icon-th'></i>Errors <div class='badge badge-important'>" . $overall_total . "</div></a><li>";
+		}
+
+		return $temp;
+	}
+
+	public function password_notification($user_id) {
+
+		$days_before_pwdchange = 30;
+		$notification_start = 10;
+		$temp = "";
+
+		$stmt = "SELECT $days_before_pwdchange-DATEDIFF(CURDATE(),u.Time_Created) as days_to_go
+		         FROM users u
+		         WHERE id='$user_id'";
+		$q = $this -> db -> query($stmt);
+		$rs = $q -> result_array();
+		$days_before_pwdchange = $rs[0]['days_to_go'];
+		if ($days_before_pwdchange > $notification_start) {
+			$days_before_pwdchange = "";
+			$temp = $days_before_pwdchange;
+		} else {
+			$temp = "<li><a><i class='icon-th'></i>Days to Password expiry <div class='badge badge-important'>" . $days_before_pwdchange . "</div></a><li>";
+		}
+		return $temp;
 	}
 
 	public function order_notification() {
@@ -55,7 +203,8 @@ class Facilitydashboard_Management extends MY_Controller {
 		if ($access_level == "facility_administrator") {
 			$dyn_table .= $this -> inactive_users();
 		}
-
+		$dyn_table .= $this -> error_correction();
+		$dyn_table .= $this -> password_notification($this -> session -> userdata("user_id"));
 		echo $dyn_table;
 	}
 
@@ -77,6 +226,43 @@ class Facilitydashboard_Management extends MY_Controller {
 	}
 
 	public function stock_notification($stock_type = "2") {
+		$facility_code = $this -> session -> userdata("facility");
+		//Main Store
+		if ($stock_type == '1') {
+			$stock_param = "AND source !=destination";
+		}
+		//Pharmacy
+		else if ($stock_type == '2') {
+			$stock_param = "AND source =destination";
+		}
+		$sql = "SELECT d.drug as drug_name,du.Name as drug_unit,temp1.qty as stock_level,temp2.minimum_consumption FROM (SELECT drug_id, SUM( balance ) AS qty FROM drug_stock_balance WHERE expiry_date > CURDATE() AND stock_type =  '$stock_type' AND balance >=0 GROUP BY drug_id) as temp1 LEFT JOIN (SELECT drug, SUM( quantity_out ) AS total_consumption, SUM( quantity_out ) * 0.5 AS minimum_consumption FROM drug_stock_movement WHERE DATEDIFF( CURDATE() , transaction_date ) <=90 $stock_param GROUP BY drug) as temp2 ON temp1.drug_id=temp2.drug LEFT JOIN drugcode d ON d.id=temp1.drug_id LEFT JOIN drug_unit du ON du.id=d.unit WHERE temp1.qty<temp2.minimum_consumption";
+		$query = $this -> db -> query($sql);
+		$results = $query -> result_array();
+		$tmpl = array('table_open' => '<table id="stock_level" class="table table-striped table-condensed">');
+		$this -> table -> set_template($tmpl);
+		$this -> table -> set_heading('No', 'Drug', 'Unit', 'Qty (Units)', 'Threshold Qty (Units)', 'Priority');
+		$x = 1;
+		foreach ($results as $drugs) {
+			if ($drugs['minimum_consumption'] == 0 and $drugs['stock_level'] == 0) {
+				$priority = 100;
+			} else {
+				$priority = ($drugs['stock_level'] / $drugs['minimum_consumption']) * 100;
+			}
+			//Check for priority
+			if ($priority >= 50) {
+				$priority_level = "<span class='low_priority'><b>LOW</b></span>";
+			} else {
+				$priority_level = "<span class='high_priority'><b>HIGH</b></span>";
+			}
+
+			$this -> table -> add_row($x, $drugs['drug_name'], $drugs['drug_unit'], $drugs['stock_level'], $drugs['minimum_consumption'], $priority_level);
+			$x++;
+		}
+		$drug_display = $this -> table -> generate();
+		echo $drug_display;
+	}
+
+	public function stock_info($stock_type = "2") {
 		$drugs_array = array();
 		$counter = 0;
 
@@ -94,72 +280,6 @@ class Facilitydashboard_Management extends MY_Controller {
 		else if ($stock_type == '2') {
 			$stock_param = " AND (source=destination) AND(source='" . $facility_code . "') ";
 		}
-
-		//Get all drugs that are active
-		$drugs_query = "select d.id as id,drug, pack_size, u.name from drugcode d left join drug_unit u on d.unit = u.id  where d.Enabled=1  ";
-		$drugs = $this -> db -> query($drugs_query);
-		$drugs_results = $drugs -> result_array();
-		foreach ($drugs_results as $drugs_result) {
-			//Get Drug
-			$drug = $drugs_result['id'];
-			$drug_name = $drugs_result['drug'];
-			$drug_unit = $drugs_result['name'];
-			$drug_packsize = $drugs_result['pack_size'];
-			$stock_level = 0;
-			$today = date("Y-m-d");
-
-			//Get all batches not expired
-			$allbatches_query = "SELECT SUM(balance) as total FROM drug_stock_balance d WHERE d.drug_id =  '$drug' AND d.expiry_date > '$today' AND facility_code='$facility_code' AND stock_type='$stock_type'";
-			$batches = $this -> db -> query($allbatches_query);
-			$batches_results = $batches -> result_array();
-			//Get stock balance for a drug
-
-			foreach ($batches_results as $stock_balance) {
-				$stock_level = $stock_balance['total'];
-			}
-
-			//Get consumption for the past three months
-			$safetystock_query = "SELECT SUM(d.quantity_out) AS TOTAL FROM drug_stock_movement d WHERE d.drug ='$drug' AND DATEDIFF(CURDATE(),d.transaction_date)<= 90 and facility='$facility_code' $stock_param";
-			$safetystocks = $this -> db -> query($safetystock_query);
-			$safetystocks_results = $safetystocks -> result_array();
-			$three_monthly_consumption = 0;
-			foreach ($safetystocks_results as $safetystocks_result) {
-				$three_monthly_consumption = $safetystocks_result['TOTAL'];
-				//Calculating Monthly Consumption hence Max-Min Inventory
-				$monthly_consumption = ($three_monthly_consumption) / 3;
-				$monthly_consumption = number_format($monthly_consumption, 2);
-
-				//Therefore Maximum Consumption
-				$maximum_consumption = $monthly_consumption * 3;
-				$maximum_consumption = number_format($maximum_consumption, 2);
-
-				//Therefore Minimum Consumption
-				$minimum_consumption = $monthly_consumption * 1.5;
-				//$minimum_consumption = number_format($monthly_consumption, 2);
-
-				//If current stock balance is less than minimum consumption
-				if ($stock_level < $minimum_consumption) {
-
-					if ($minimum_consumption < 0) {
-						$minimum_consumption = 0;
-					}
-					if ($stock_level < 0 or $stock_level == "NULL") {
-						$stock_level = 0;
-					}
-					$drugs_array[$counter]['drug_name'] = $drug_name;
-					$drugs_array[$counter]['drug_unit'] = $drug_unit;
-					$drugs_array[$counter]['stock_level'] = number_format($stock_level);
-					$drugs_array[$counter]['minimum_consumption'] = ceil($minimum_consumption);
-
-					$strDATA .= "<set label='$drug_name' value='$stock_level' />";
-					$strLEVEL .= "<set label='$drug_name' value='$minimum_consumption' />";
-					$strcat .= "<category label='$drug_name'/>";
-				}
-			}
-			$counter++;
-
-		}
-
 		//Create table to store data
 		$tmpl = array('table_open' => '<table id="stock_level" class="table table-striped table-condensed">');
 		$this -> table -> set_template($tmpl);
@@ -175,9 +295,9 @@ class Facilitydashboard_Management extends MY_Controller {
 			}
 			//Check for priority
 			if ($priority >= 50) {
-				$priority_level = "<span class='low_priority'>LOW</span>";
+				$priority_level = "<span class='low_priority'><b>LOW</b></span>";
 			} else {
-				$priority_level = "<span class='high_priority'>HIGH</span>";
+				$priority_level = "<span class='high_priority'><b>HIGH</b></span>";
 			}
 
 			$this -> table -> add_row($x, $drugs['drug_name'], $drugs['drug_unit'], $drugs['stock_level'], $drugs['minimum_consumption'], $priority_level);
@@ -199,17 +319,11 @@ class Facilitydashboard_Management extends MY_Controller {
 		$count = 0;
 		$facility_code = $this -> session -> userdata('facility');
 		//$drugs_sql = "SELECT s.id AS id,s.drug AS Drug_Id,d.drug AS Drug_Name,d.pack_size AS pack_size, u.name AS Unit, s.batch_number AS Batch,s.expiry_date AS Date_Expired,DATEDIFF(s.expiry_date,CURDATE()) AS Days_Since_Expiry FROM drugcode d LEFT JOIN drug_unit u ON d.unit = u.id LEFT JOIN drug_stock_movement s ON d.id = s.drug LEFT JOIN transaction_type t ON t.id=s.transaction_type WHERE t.effect=1 AND DATEDIFF(s.expiry_date,CURDATE()) <='$period' AND DATEDIFF(s.expiry_date,CURDATE())>=0 AND d.enabled=1 AND s.facility ='" . $facility_code . "' GROUP BY Batch ORDER BY Days_Since_Expiry asc";
-		$drugs_sql="SELECT d.drug as drug_name,d.pack_size,u.name as drug_unit,dsb.batch_number as batch,dsb.balance as stocks_display,dsb.expiry_date,DATEDIFF(dsb.expiry_date,CURDATE()) as expired_days_display FROM drugcode d LEFT JOIN drug_unit u ON d.unit=u.id LEFT JOIN drug_stock_balance dsb ON d.id=dsb.drug_id WHERE DATEDIFF(dsb.expiry_date,CURDATE()) <='$period' AND DATEDIFF(dsb.expiry_date,CURDATE())>=0 AND d.enabled=1 AND dsb.facility_code ='" . $facility_code . "' AND dsb.stock_type='".$stock_type."' AND dsb.balance>0 ORDER BY expired_days_display asc";
+		$drugs_sql = "SELECT d.drug as drug_name,d.pack_size,u.name as drug_unit,dsb.batch_number as batch,dsb.balance as stocks_display,dsb.expiry_date,DATEDIFF(dsb.expiry_date,CURDATE()) as expired_days_display FROM drugcode d LEFT JOIN drug_unit u ON d.unit=u.id LEFT JOIN drug_stock_balance dsb ON d.id=dsb.drug_id WHERE DATEDIFF(dsb.expiry_date,CURDATE()) <='$period' AND DATEDIFF(dsb.expiry_date,CURDATE())>=0 AND d.enabled=1 AND dsb.facility_code ='" . $facility_code . "' AND dsb.stock_type='" . $stock_type . "' AND dsb.balance>0 ORDER BY expired_days_display asc";
 		$drugs = $this -> db -> query($drugs_sql);
 		$results = $drugs -> result_array();
-		//Get all expiring drugs
-		//foreach ($results as $result => $value) {
-			//$count = 1;
-			//$this -> getBatchInfo($value['Drug_Id'], $value['Batch'], $value['Unit'], $value['Drug_Name'], $value['Date_Expired'], $value['Days_Since_Expiry'], $value['id'], $value['pack_size'], $stock_type, $facility_code);
-		//}
-		
 		$d = 0;
-		$drugs_array =$results;
+		$drugs_array = $results;
 
 		$nameArray = array();
 		$dataArray = array();
@@ -220,6 +334,7 @@ class Facilitydashboard_Management extends MY_Controller {
 			$resultArraySize++;
 		}
 		$resultArray = array( array('name' => 'Expiry', 'data' => $expiryArray), array('name' => 'Stock', 'data' => $stockArray));
+		
 		$resultArray = json_encode($resultArray);
 		$categories = $nameArray;
 		$categories = json_encode($categories);
@@ -228,7 +343,7 @@ class Facilitydashboard_Management extends MY_Controller {
 		$data['container'] = 'chart_expiry';
 		$data['chartType'] = 'bar';
 		$data['title'] = 'Chart';
-		$data['chartTitle'] = 'Expired Drugs';
+		$data['chartTitle'] = 'Expiring Drugs';
 		$data['categories'] = $categories;
 		$data['yAxix'] = 'Drugs';
 		$data['resultArray'] = $resultArray;
@@ -313,17 +428,24 @@ class Facilitydashboard_Management extends MY_Controller {
 
 	//Get patients enrolled
 	public function getPatientEnrolled($startdate = "", $enddate = "") {
-		$maleAdult= array();
-			$femaleAdult= array();
-			$maleChild = array();
-			$femaleChild=array();
+		$startdate = date('Y-m-d', strtotime($startdate));
+		$enddate = date('Y-m-d', strtotime($enddate));
+		$first_date = $startdate;
+		$last_date = $enddate;
+		$maleAdult = array();
+		$femaleAdult = array();
+		$maleChild = array();
+		$femaleChild = array();
 		$facility_code = $this -> session -> userdata('facility');
 		$timestamp = time();
 		$edate = date('Y-m-d', $timestamp);
 		$dates = array();
-		$x = 7;
+		$x = 6;
 		$y = 0;
 		$resultArraySize = 0;
+		$days_in_year = date("z", mktime(0, 0, 0, 12, 31, date('Y'))) + 1;
+		$adult_age = 15;
+		$patients_array = array();
 
 		//If no parameters are passed, get enrolled patients for the past 7 days
 		if ($startdate == "" || $enddate == "") {
@@ -337,112 +459,80 @@ class Facilitydashboard_Management extends MY_Controller {
 				//If sunday is included, add one more day
 				else {$x = 8;
 				}
-				$timestamp -= 24 * 3600;
+				$timestamp += 24 * 3600;
 			}
 			$start_date = $sdate;
 			$end_date = $edate;
 		} else {
+			$startdate = strtotime($startdate);
+			for ($i = 0; $i < $x; $i++) {
+				if (date("D", $startdate) != "Sun") {
+					$sdate = date('Y-m-d', $startdate);
+					//Store the days in an array
+
+					$dates[$y] = $sdate;
+					$y++;
+				}
+				//If sunday is included, add one more day
+				else {$x = 8;
+				}
+				$startdate += 24 * 3600;
+			}
 			$start_date = $startdate;
 			$end_date = $enddate;
 		}
-		$get_patient_sql = "SELECT p.gender, dob , date_enrolled FROM patient p WHERE p.date_enrolled
-							BETWEEN  '" . $start_date . "' AND  '" . $end_date . "' AND p.facility_code='" . $facility_code . "' ORDER BY p.date_enrolled  ";
-		$res = $this -> db -> query($get_patient_sql);
-		$x = 0;
-		$y = 0;
-		$count_patient_date = 0;
-		$date_enrolled = "";
-		$counter = 0;
-		$total_male_adult = 0;
-		$total_female_adult = 0;
-		$total_male_child = 0;
-		$total_female_child = 0;
-		$patients_array = array();
 
-		$results = $res -> result_array();
+		/*Loop through all dates in range and get summary of patients enrollment i those days */
+		foreach ($dates as $date) {
 
-		//Loop through the array to get totals for each category
-		foreach ($results as $key => $value) {
-			$count_patient_date++;
-			if ($x == 0) {
-				$x = 1;
-				$date_enrolled = $value['date_enrolled'];
-			}
-			//If enrollement date changes
-			if ($value['date_enrolled'] != $date_enrolled) {
-				$count_patient_date = 1;
-				$y = 0;
-				$total_male_adult = 0;
-				$total_female_adult = 0;
-				$total_male_child = 0;
-				$total_female_child = 0;
-				$counter++;
-				$patients_array[$counter]['date_enrolled'] = $value['date_enrolled'];
-				$patients_array[$counter]['total_day'] = $count_patient_date;
-				$date_enrolled = $value['date_enrolled'];
+			$stmt = "SELECT p.date_enrolled, g.name AS gender, ROUND(DATEDIFF(CURDATE(),p.dob)/$days_in_year) AS age,COUNT(*) AS total
+					FROM patient p
+					LEFT JOIN gender g ON p.gender = g.id
+					WHERE p.date_enrolled ='$date'
+					GROUP BY g.name, ROUND(DATEDIFF(CURDATE(),p.dob)/$days_in_year)>$adult_age";
+			$q = $this -> db -> query($stmt);
+			$rs = $q -> result_array();
 
-			} else if ($value['date_enrolled'] == $date_enrolled) {
+			/*Loop through selected days result set*/
+			$total_male_adult = 0;
+			$total_female_adult = 0;
+			$total_male_child = 0;
+			$total_female_child = 0;
 
-				if ($y != 1) {
-					//Initialise totals
-					$patients_array[$counter]['date_enrolled'] = $value['date_enrolled'];
-					$patients_array[$counter]['total_male_adult'] = 0;
-					$patients_array[$counter]['total_female_adult'] = 0;
-					$patients_array[$counter]['total_male_child'] = 0;
-					$patients_array[$counter]['total_female_child'] = 0;
-				}
-				$patients_array[$counter]['total_day'] = $count_patient_date;
-				$y = 1;
-
-			}
-
-			$birthDate = $value['dob'];
-			//get age from date or birthdate
-			$age = $this -> age_from_dob($birthDate);
-			//If patient is male, check if he is an adult or child
-			if ($value['gender'] == 1) {
-				//Check if adult
-				if ($age >= 15) {
-					$total_male_adult++;
-					$patients_array[$counter]['total_male_adult'] = $total_male_adult;
-					$patients_array[$counter]['total_male_child'] = $total_male_child;
-					$patients_array[$counter]['total_female_adult'] = $total_female_adult;
-					$patients_array[$counter]['total_female_child'] = $total_female_child;
-
-				} else {
-					$total_male_child++;
-					$patients_array[$counter]['total_male_adult'] = $total_male_adult;
-					$patients_array[$counter]['total_male_child'] = $total_male_child;
-					$patients_array[$counter]['total_female_adult'] = $total_female_adult;
-					$patients_array[$counter]['total_female_child'] = $total_female_child;
+			if ($rs) {
+				foreach ($rs as $r) {
+					/*Check if Adult Male*/
+					if (strtolower($r['gender']) == "male" && $r['age'] >= $adult_age) {
+						$total_male_adult = $r['total'];
+					}
+					/*Check if Adult Female*/
+					if (strtolower($r['gender']) == "female" && $r['age'] >= $adult_age) {
+						$total_female_adult = $r['total'];
+					}
+					/*Check if Child Male*/
+					if (strtolower($r['gender']) == "male" && $r['age'] < $adult_age) {
+						$total_male_child = $r['total'];
+					}
+					/*Check if Child Female*/
+					if (strtolower($r['gender']) == "female" && $r['age'] < $adult_age) {
+						$total_female_child = $r['total'];
+					}
 				}
 			}
-			//If patient is female, check if he is an adult or child
-			else if ($value['gender'] == 2) {
-				//Check if adult
-				if ($age >= 15) {
-					$total_female_adult++;
-					$patients_array[$counter]['total_male_adult'] = $total_male_adult;
-					$patients_array[$counter]['total_male_child'] = $total_male_child;
-					$patients_array[$counter]['total_female_adult'] = $total_female_adult;
-					$patients_array[$counter]['total_female_child'] = $total_female_child;
-				} else {
-					$total_female_child++;
-					$patients_array[$counter]['total_male_adult'] = $total_male_adult;
-					$patients_array[$counter]['total_male_child'] = $total_male_child;
-					$patients_array[$counter]['total_female_adult'] = $total_female_adult;
-					$patients_array[$counter]['total_female_child'] = $total_female_child;
-				}
-			}
+
+			/*Place Values into an Array*/
+
+			$patients_array[$date] = array("Adult Male" => $total_male_adult, "Adult Female" => $total_female_adult, "Child Male" => $total_male_child, "Child Female" => $total_female_child);
 
 		}
+
 		$resultArraySize = 6;
 		$categories = array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday');
 		foreach ($patients_array as $key => $value) {
-			$maleAdult[] = (int)$value['total_male_adult'];
-			$femaleAdult[] = (int)$value['total_female_adult'];
-			$maleChild[] = (int)$value['total_male_child'];
-			$femaleChild[] = (int)$value['total_female_child'];
+			$maleAdult[] = (int)$value['Adult Male'];
+			$femaleAdult[] = (int)$value['Adult Female'];
+			$maleChild[] = (int)$value['Child Male'];
+			$femaleChild[] = (int)$value['Child Female'];
 		}
 		$resultArray = array( array('name' => 'Male Adult', 'data' => $maleAdult), array('name' => 'Female Adult', 'data' => $femaleAdult), array('name' => 'Male Child', 'data' => $maleChild), array('name' => 'Female Child', 'data' => $femaleChild));
 		$resultArray = json_encode($resultArray);
@@ -460,17 +550,19 @@ class Facilitydashboard_Management extends MY_Controller {
 	}
 
 	//Get patients expected for appointment
-
 	public function getExpectedPatients($startdate = "", $enddate = "") {
-
+		$startdate = date('Y-m-d', strtotime($startdate));
+		$enddate = date('Y-m-d', strtotime($enddate));
+		$first_date = $startdate;
+		$last_date = $enddate;
 		$facility_code = $this -> session -> userdata('facility');
 		$timestamp = time();
 		$edate = date('Y-m-d', $timestamp);
 		$dates = array();
-		$x = 7;
+		$x = 6;
 		$y = 0;
-		$missed=array();
-		$visited=array();
+		$missed = array();
+		$visited = array();
 
 		//If no parameters are passed, get enrolled patients for the past 7 days
 		if ($startdate == "" || $enddate == "") {
@@ -484,85 +576,57 @@ class Facilitydashboard_Management extends MY_Controller {
 				//If sunday is included, add one more day
 				else {$x = 8;
 				}
-				$timestamp -= 24 * 3600;
+				$timestamp += 24 * 3600;
 			}
 			$start_date = $sdate;
 			$end_date = $edate;
 		} else {
+			$startdate = strtotime($startdate);
+			for ($i = 0; $i < $x; $i++) {
+				if (date("D", $startdate) != "Sun") {
+					$sdate = date('Y-m-d', $startdate);
+					//Store the days in an array
+
+					$dates[$y] = $sdate;
+					$y++;
+				}
+				//If sunday is included, add one more day
+				else {$x = 8;
+				}
+				$startdate += 24 * 3600;
+			}
 			$start_date = $startdate;
 			$end_date = $enddate;
 		}
-		//Get patients who are expected
-		$patients_expected_sql = "select distinct pa.patient,pa.appointment,UPPER(p.first_name) as first_name from patient_appointment pa, patient p where pa.appointment between '" . $start_date . "' and '" . $end_date . "'  and pa.patient = p.patient_number_ccc and p.facility_code='" . $facility_code . "' AND pa.facility=p.facility_code GROUP BY pa.patient,pa.appointment ORDER BY pa.appointment";
-		$res = $this -> db -> query($patients_expected_sql);
-		$results = $res -> result_array();
-		$resultArraySize = 0;
-		$counter = 0;
-		$x = 0;
-		$y = 0;
-		$v = 0;
-		$n = 0;
-		$count_patient_date = 0;
-		$date_appointment = "";
-		$patients_array[$counter]['total_patient'] = count($results);
-		//Array to store dates and count of patients
-		$patients_array = array();
-		foreach ($results as $key => $value) {
-			$count_patient_date++;
-			if ($x == 0) {
-				$x = 1;
-				$date_appointment = $value['appointment'];
-			}
-			//If appointment date changes
-			if ($value['appointment'] != $date_appointment) {
-				//Initialise patients visited and not visited count
-				//echo $count_patient_date;
-				$count_patient_date = 1;
-				$v = 0;
-				$n = 0;
-				$y = 0;
-				$counter++;
-				$patients_array[$counter]['date_appointment'] = $value['appointment'];
-				$patients_array[$counter]['total_day'] = $count_patient_date;
-				$date_appointment = $value['appointment'];
-			} else if ($value['appointment'] == $date_appointment) {
+		//Get Data for total_expected and total_visited in selected period
+		$start_date = $first_date;
+		$end_date = $last_date;
+		$sql = "select temp1.appointment,temp1.total_expected,temp2.total_visited from (select pa.appointment,count(distinct pa.patient) as total_expected from patient_appointment pa where pa.appointment between '$start_date' and '$end_date' group by pa.appointment) as temp1 left join (SELECT dispensing_date, COUNT( DISTINCT patient_id ) AS total_visited FROM patient_visit WHERE dispensing_date BETWEEN  '$start_date' AND  '$end_date' GROUP BY dispensing_date) as temp2 on temp1.appointment=temp2.dispensing_date";
+		$query = $this -> db -> query($sql);
+		$results = $query -> result_array();
 
-				if ($y != 1) {
-					//Initialise patients visited and not visited count
-					$patients_array[$counter]['date_appointment'] = $value['appointment'];
-					$patients_array[$counter]['patient_visited'] = 0;
-					$patients_array[$counter]['patient_not_visited'] = 0;
-				}
-				$patients_array[$counter]['total_day'] = $count_patient_date;
-				$y = 1;
-
-			}
-			//Check if patient came for appointment
-			$visited_patients_sql = "select patient_id from patient_visit pv left join patient p on p.patient_number_ccc=pv.patient_id where pv.dispensing_date='" . $value['appointment'] . "' and pv.patient_id='" . $value['patient'] . "' and pv.facility='" . $facility_code . "' and pv.facility=p.facility_code ";
-			$res = $this -> db -> query($visited_patients_sql);
-			$results = $res -> result_array();
-			if (count($results) != 0) {
-				$v++;
-				$patients_array[$counter]['patient_visited'] = $v;
-				$patients_array[$counter]['patient_not_visited'] = $n;
+		$outer_array = array();
+		foreach ($results as $result) {
+			$outer_array[$result['appointment']]['expected'] = $result['total_expected'];
+			$outer_array[$result['appointment']]['visited'] = $result['total_visited'];
+		}
+		$keys = array_keys($outer_array);
+		//Loop through dates and check if they are in the result array
+		foreach ($dates as $date) {
+			$index = array_search($date, $keys);
+			if ($index >= 0) {
+				$visited[] =@(int)$outer_array[$keys[$index]]['visited'];
+				$missed[] = @(int)$outer_array[$keys[$index]]['expected'];
 			} else {
-				$n++;
-				$patients_array[$counter]['patient_not_visited'] = $n;
-				$patients_array[$counter]['patient_visited'] = $v;
+				$visited[] = 0;
+				$missed[] = 0;
 			}
-
 		}
-
 		$categories = array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday');
-		foreach ($patients_array as $key => $value) {
-			$visited[] = (int)$value['patient_visited'];
-			$missed[] = (int)$value['patient_not_visited'];
-			$resultArraySize++;
-		}
-		$resultArray = array( array('name' => 'Visited', 'data' => $visited), array('name' => 'Missed', 'data' => $missed));
+		$resultArray = array( array('name' => 'Visited', 'data' => $visited), array('name' => 'Expected', 'data' => $missed));
 		$resultArray = json_encode($resultArray);
 		$categories = json_encode($categories);
-		$data['resultArraySize'] = $resultArraySize;
+		$data['resultArraySize'] = 6;
 		$data['container'] = "chart_appointments";
 		$data['chartType'] = 'bar';
 		$data['chartTitle'] = 'Patients Expected';

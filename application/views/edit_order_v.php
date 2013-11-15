@@ -217,6 +217,7 @@
 <th class="col_losses_units">Losses (Damages, Expiries, Missing)</th>
 <th class="col_adjustments">Adjustments (Borrowed from or Issued out to Other Facilities)</th>
 <th class="number">End of Month Physical Count</th>
+<th class="number" colspan="2">Quantity to Expire in less than 6 months</th>
 
 <!-- aggr_consumed/on_hand -->
 <th class="number">Qty required for Resupply</th>
@@ -232,6 +233,8 @@
 
 <th>'.$unit.'</th> <!-- adjustments -->
 <th>'.$unit.'</th> <!-- count -->
+<th>'.$unit.'</th> <!-- expire -->
+<th>mm-yy</th> <!-- expire -->
 
 <!-- aggr_consumed/on_hand -->
 
@@ -245,7 +248,9 @@
 <th>D</th> <!-- losses -->
 <th>E</th> <!-- adjustments -->
 <th>F</th> <!-- count -->
-<th>G</th> <!-- count -->
+<th>G</th> <!-- expire -->
+<th>H</th> <!-- expire -->
+<th>I</th> <!-- count -->
 
 <!-- aggr_consumed/on_hand -->
 
@@ -290,6 +295,13 @@
 				</td>
 				<td class="number calc_resupply col_count">
 				<input tabindex="-1" name="physical_count[]" id="CdrrItem_10_count" type="text" class="physical_count" value="<?php echo $commodity['count'];?>">
+				</td>
+				<!--Expire-->
+				<td class="number calc_expire_qty col_exqty">
+					<input tabindex="-1" name="expire_qty[]" id="expire_qty_<?php echo$commodity['did'];?>" type="text" class="expire_qty" value="<?php echo $commodity['aggr_consumed'];?>">
+				</td>
+				<td class="number calc_expire_period col_experiod">
+				    <input tabindex="-1" name="expire_period[]" id="expire_period_<?php echo $commodity['did'];?>" type="text" class="expire_period" value="<?php echo $commodity['aggr_on_hand'];?>">
 				</td>
 				<!-- aggregate -->
 				<td class="number col_resupply">

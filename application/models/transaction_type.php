@@ -15,6 +15,23 @@ class Transaction_Type extends Doctrine_Record {
 		$transaction_types = $query -> execute();
 		return $transaction_types;
 	}
+	
+	public function getTransactionType($filter,$effect){
+		$query = Doctrine_Query::create() -> select("*") -> from("transaction_type")->where("Name LIKE '%$filter%' AND effect='$effect' ");
+		$transaction_type = $query -> execute();
+		return $transaction_type[0];
+	}
+	
+	public function getAllTypes(){
+		$query = Doctrine_Query::create() -> select("id,Name,Effect") -> from("transaction_type")->where("Name LIKE '%received%' OR Name LIKE '%adjustment%' OR Name LIKE '%return%' OR Name LIKE '%dispense%' OR Name LIKE '%issue%' OR Name LIKE '%loss%' OR Name LIKE '%ajustment%' OR Name LIKE '%physical%count%' OR Name LIKE '%starting%stock%'");
+		$transaction_types = $query -> execute(array(), Doctrine::HYDRATE_ARRAY);
+		return $transaction_types;
+	}
+	public function getEffect($id){
+		$query = Doctrine_Query::create() -> select("Effect") -> from("transaction_type")->where("id='$id'");
+		$transaction_types = $query -> execute(array(), Doctrine::HYDRATE_ARRAY);
+		return $transaction_types[0];
+	}
 }
 ?>
 	

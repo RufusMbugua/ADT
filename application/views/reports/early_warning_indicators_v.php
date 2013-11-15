@@ -24,7 +24,7 @@
 					<th> Total Patients Starting 12 months from selected period </th>
 					<th> Percentage(%) Patients Retained in First Line</th>
 				</tr>
-				<tr><td align="center"><?php echo $total_from_period; ?></td><td align="center"><?php echo $stil_in_first_line ?></td><td align="center"><?php echo $percentage_stillfirstline ?></td></tr>
+				<tr><td align="center"><?php echo $stil_in_first_line; ?></td><td align="center"><?php echo $total_from_period;?></td><td align="center"><?php echo $percentage_stillfirstline ?></td></tr>
 			</table>
 		</div>
 		<div class="lost_to_follow_up_percentage" cellpadding="5">
@@ -32,7 +32,7 @@
 			<table class="listing_table" id="percentage_lost_to_follow_up" border="1">
 				<tr>
 					<th> No. of Patients Lost to Follow Up </th>
-					<th> Total Patients Started on ART in the selected peroid </th>
+					<th> Total Patients Started on ART in the selected period </th>
 					<th> Percentage(%) of Patients Lost to follow Up</th>
 				</tr>
 				<tr><td align="center"><?php echo $lost_to_follow ?></td><td align="center"><?php echo $total_before_period ?></td><td align="center"><?php echo $percentage_lost_to_follow ?></td></tr>

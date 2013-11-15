@@ -76,6 +76,12 @@ class Facility_Order extends Doctrine_Record {
 		$orders = $query -> execute();
 		return $orders;
 	}
+	
+	public function getPickingList($status='3', $facility) {
+		$query = Doctrine_Query::create() -> select("*") -> from("Facility_Order") ->  where("Status = '$status' and Central_Facility = '$facility'");
+		$orders = $query -> execute();
+		return $orders;
+	}
 
 }//end class
 ?>

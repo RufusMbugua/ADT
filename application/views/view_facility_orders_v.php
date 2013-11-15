@@ -132,6 +132,8 @@
 	</div>
 	<?php
 	if($parent->parent!=$central_facility){
+		$facilities=array();
+		$facilities[]=array("facilitycode"=>$this->session->userdata("facility"),"name"=>$this->session->userdata("facility_name"));
 	$this->load->view('satellite_orders_sub_menu');	
 	}else{
 	$this->load->view('orders_sub_menu');
@@ -155,7 +157,8 @@
 					}else{
 					?>
 					Days pending <p style="<?php if($days_pending=="Approval"){ ?> color:rgb(255, 167, 11);  <?php } elseif ($days_pending=="Dispatched") { ?> color:green; <?php } elseif ($days_pending=="Resubmission") { ?> color:red; <?php } elseif ($days_pending=="Delivery") { ?> color:rgb(1, 167, 146); <?php } ?>">(<?php echo $days_pending ?>)</p></th>	
-					<?php } 
+					<?php 
+					} 
 				} ?>
 				
 			<th>Action</th>
@@ -183,7 +186,9 @@
 				
 				<td align="center"><?php echo $numberDays; ?> Day(s)</td>
 				<td style="text-align: center">
-					 <a  href="<?php echo base_url()."order_management/view_order/".$order->id;?>" ></i>View</a>
+					 <a  href="<?php echo base_url()."order_management/export/".$order->id;?>" ><i class="icon-download"></i>Export</a>
+					 | 
+					 <a  href="<?php echo base_url()."order_management/view_order/".$order->id;?>" >View</a>
 					<?php if(($quick_link != 1 && $quick_link != 3) ||$quick_link == 2 ){?>
 					 | <a href="<?php echo base_url()."order_management/edit_order/".$order->id;?>"> Edit</a> 
 					<?php }?>

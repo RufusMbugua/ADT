@@ -2,6 +2,10 @@
 class Patient_Visit extends Doctrine_Record {
 
 	public function setTableDefinition() {
+		/*
+		 * pill_count is expected pill count
+		 * mos is actual pill count
+		 */
 		$this -> hasColumn('Patient_Id', 'varchar', 10);
 		$this -> hasColumn('Visit_Purpose', 'varchar', 10);
 		$this -> hasColumn('Current_Height', 'varchar', 10);

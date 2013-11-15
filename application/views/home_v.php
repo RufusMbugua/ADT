@@ -45,16 +45,10 @@ $(document).ready(function() {
       //Get Today's Date and Upto Saturday
       var someDate = new Date();
       var dd = ("0" + someDate.getDate()).slice(-2);
-      var mm = ("0" + (someDate.getMonth() + 1)).slice(-2);
+      var m = ("0" + (someDate.getMonth() + 1)).slice(-2);
       var y = someDate.getFullYear();
-      var fromDate="<?php echo $monday = date('Y-m-d',strtotime('monday this week'));?>";  
-       
-      var numberOfDaysToAdd = 5;
-      var to_date=new Date(someDate.setDate(someDate.getDate() + numberOfDaysToAdd)); 
-      var dd = ("0" + to_date.getDate()).slice(-2);
-      var mm = ("0" + (to_date.getMonth() + 1)).slice(-2);
-      var y = to_date.getFullYear();
-      var endDate =y+'-'+mm+'-'+dd;
+      var fromDate="<?php echo $monday = date('d-M-Y',strtotime('monday this week'));?>";  
+      var endDate="<?php echo $saturday = date('d-M-Y',strtotime('saturday this week')); ?>";
       
       $("#enrollment_start").val(fromDate);
       $("#enrollment_end").val(endDate);
@@ -72,7 +66,9 @@ $(document).ready(function() {
        $('#table1').load('<?php echo base_url().'facilitydashboard_management/stock_notification'?>',function(){
 				$('#stock_level').dataTable({
 					"bJQueryUI": true,
-	        		"sPaginationType": "full_numbers"
+	        		"sPaginationType": "full_numbers",	
+	        		"bFilter": false,
+	        		"bLengthChange": false
 	            });
 	   });
     //Toggle
@@ -163,8 +159,8 @@ var chartLink;
                  }else if(button_id=="enrollment_btn"){
                  	 var from_date=$("#enrollment_start").val();
                  	 var to_date=$("#enrollment_end").val();
-                 	 var enrollment_link="<?php echo base_url().'facilitydashboard_management/getPatientEnrolled/';?>"+from_date+'/'+to_date;
-                 	 $('#chart_area2').load(enrollment_link);
+                 	 var enrollment_link="<?php echo base_url().'facilitydashboard_management/getPatientEnrolled/';?>"+from_date+'/'+to_date;         	 
+                     $('#chart_area2').load(enrollment_link);
                  }else if(button_id=="appointment_btn"){
                  	 var from_date=$("#visit_start").val();
                  	 var to_date=$("#visit_end").val();
@@ -212,7 +208,7 @@ var chartLink;
 			</h3>
 			
 			<div id="chart_area">
-				<div class="loadingDiv" style="margin:20% 0 20% 0;" ><img style="width: 30px;margin-left:50%" src="<?php echo asset_url().'images//loading_spin.gif' ?>"></div>
+				<div class="loadingDiv" style="margin:20% 0 20% 0;" ><img style="width: 30px;margin-left:50%" src="<?php echo asset_url().'images/loading_spin.gif' ?>"></div>
 			</div>
 			
 		</div>
@@ -221,7 +217,7 @@ var chartLink;
 			<h3>Weekly Summary of Patient Enrollment <br/>From
 				<input type="text" placeholder="Start" class="input-medium" id="enrollment_start"/> To
 				<input type="text" placeholder="End" class=" input-medium" id="enrollment_end" readonly="readonly"/>
-				<button class="btn btn-warning" style="color:black" id="enrollment_btn">Get</button>
+				<button class="generate btn btn-warning" style="color:black" id="enrollment_btn">Get</button>
 				<button class="btn btn-success more" id="enrollment-more">Larger</button>
 			<button class="btn btn-danger less" id="enrollment-less">Smaller</button>
 				 </h3>
@@ -254,7 +250,7 @@ var chartLink;
 			<p>&nbsp;</p>
 			</h3>
 			
-			<div id="table1">
+			<div id="table1" style="height:100%;overflow:scroll;">
 			 	<div class="loadingDiv" style="margin:20% 0 20% 0;" ><img style="width: 30px;margin-left:50%" src="<?php echo asset_url().'images/loading_spin.gif' ?>"></div>
 			</div>
 		</div>
@@ -264,11 +260,24 @@ var chartLink;
 
 <script type="text/javascript">
 $(document).ready(function(){
-	var base_url="<?php echo base_url(); ?>";    		      	   
+	var base_url="<?php echo base_url(); ?>"; 
+	var month=new Array();
+month[0]="Jan";
+month[1]="Feb";
+month[2]="Mar";
+month[3]="Apr";
+month[4]="May";
+month[5]="Jun";
+month[6]="Jul";
+month[7]="Aug";
+month[8]="Sep";
+month[9]="Oct";
+month[10]="Nov";
+month[11]="Dec";   		      	   
 	        $("#enrollment_start").datepicker({
 					yearRange : "-120:+0",
 					maxDate : "0D",
-					dateFormat : $.datepicker.ATOM,
+					dateFormat :'dd-M-yy',
 					changeMonth : true,
 					changeYear : true,
 					beforeShowDay: function(date){ 
@@ -280,7 +289,7 @@ $(document).ready(function(){
 			$("#visit_start").datepicker({
 					yearRange : "-120:+0",
 					maxDate : "0D",
-					dateFormat : $.datepicker.ATOM,
+					dateFormat : 'dd-M-yy',
 					changeMonth : true,
 					changeYear : true,
 					beforeShowDay: function(date){ 
@@ -296,9 +305,9 @@ $(document).ready(function(){
                 var numberOfDaysToAdd = 5;
                 var to_date=new Date(someDate.setDate(someDate.getDate() + numberOfDaysToAdd)); 
                 var dd = ("0" + to_date.getDate()).slice(-2);
-                var mm = ("0" + (to_date.getMonth() + 1)).slice(-2);
+                var mm = to_date.getMonth();
                 var y = to_date.getFullYear();
-                var someFormattedDate =y+'-'+mm+'-'+dd;
+                var someFormattedDate =dd+'-'+month[mm]+'-'+y;
 				$("#visit_end").val(someFormattedDate);
 			});
 			
@@ -309,9 +318,9 @@ $(document).ready(function(){
                 var numberOfDaysToAdd = 5;
                 var to_date=new Date(someDate.setDate(someDate.getDate() + numberOfDaysToAdd)); 
                 var dd = ("0" + to_date.getDate()).slice(-2);
-                var mm = ("0" + (to_date.getMonth() + 1)).slice(-2);
+                var mm = to_date.getMonth();
                 var y = to_date.getFullYear();
-                var someFormattedDate =y+'-'+mm+'-'+dd;
+                var someFormattedDate =dd+'-'+month[mm]+'-'+y;
 				$("#enrollment_end").val(someFormattedDate);
 			});
 			

@@ -9,7 +9,7 @@
 |	http://codeigniter.com/user_guide/general/hooks.html
 |
 */
-
+$hook['post_controller_constructor'][] = array('function' => 'check_ssl', 'filename' => 'ssl.php', 'filepath' => 'hooks');
 
 
 /* End of file hooks.php */

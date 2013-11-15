@@ -1,8 +1,4 @@
-<Style>
-	.nav{
-		margin-top:1.5%;
-	}
-</Style>
+
 <script type="text/javascript">
 	
 	$(document).ready( function () {
@@ -11,7 +7,10 @@
 			"bServerSide": true,
 			"sAjaxSource": "inventory_management/main_store_stock",
 	        "bJQueryUI": true,
-	        "sPaginationType": "full_numbers"
+	        "sPaginationType": "full_numbers",
+	       "aoColumnDefs": [
+      		{ "bSearchable": false, "aTargets": [ 2,3,4 ] }
+    		]  
 		} );
 		$('#pharmacy_table').dataTable( {
 			"bProcessing": true,
@@ -48,8 +47,6 @@ if($this->session->userdata("inventory_go_back")){
 		?>
 		<script type="text/javascript">
 			$(document).ready(function(){
-				
-				
 				$("#pharmacy_btn").removeClass();
 				$(this).addClass("active");
 				$("#pharmacy_table").hide();
@@ -66,8 +63,6 @@ if($this->session->userdata("inventory_go_back")){
 		?>
 		<script type="text/javascript">
 				$(document).ready(function(){
-					
-				
 				$("#store_btn").removeClass();
 				$("#pharmacy_btn").addClass("active");
 				$("#store_table").hide();
@@ -123,19 +118,6 @@ if ($access_level == "facility_administrator") {
 }
 ?>
 
-
-
-
-
-<style>
-	.dataTables_wrapper{
-		width:100%;
-		
-	}
-
-</style>
-
-
 <?php 
 //COunt number of patients
 ?>
@@ -149,18 +131,18 @@ if ($access_level == "facility_administrator") {
 					
 					<script type="text/javascript">
 						setTimeout(function(){
-							$(".info").fadeOut("2000");
+							$(".message").fadeOut("2000");
 						},6000)
 					</script>
 					<?php
 					if($this->session->userdata("msg_save_transaction")=="success"){
 						?>
-						<p class="info"><span class="message success">Your data were successfully saved !</span></p>
+						<p class=""><span class="message success">Your data were successfully saved !</span></p>
 						<?php
 					}
 					else{
 						?>
-						<p class="info"><span class="message error">Your data were not saved ! Try again or contact your system administrator.</span></p>
+						<p class=""><span class="message error">Your data were not saved ! Try again or contact your system administrator.</span></p>
 						<?php
 					}
 					$this->session->unset_userdata('msg_save_transaction');
@@ -172,19 +154,26 @@ if ($access_level == "facility_administrator") {
 			<li id="store_btn" class="active"><a  href="#">Store Inventory</a> </li>   
 			<li id="pharmacy_btn"><a  href="#">Pharmacy Inventory</a></li>   
 		</ul> 
-		<table id="store_table" class="listing_table" border="1" style="font-size:0.8em">
+		
+		<?php
+		 // echo $store_table;
+		 // echo $pharmacy_table;
+		?>
+		<table id="store_table" class="listing_table" border="1" >
 			<thead>
 				<tr>
-					<th style="min-width: 280px">Commodity</th><th>Generic Name</th><th>QTY/SOH</th><th>Unit</th><th>Pack Size</th><th>Supporter</th><th>Dose</th><th style="width: 250px">Action</th>
+					<th style="width:30%">Commodity</th><th>Generic Name</th><th>QTY/SOH</th><th>Unit</th><th>Pack Size</th><th>Supplier</th><th>Dose</th><th style="width:10%">Action</th>
 				</tr>
 			</thead>
 			<tbody>
+				
 			</tbody>
 		</table>
-		<table id="pharmacy_table" class="listing_table" border="1" style="font-size:0.8em">
+		
+		<table id="pharmacy_table" class="listing_table" border="1" >
 			<thead>
 				<tr>
-					<th style="min-width: 280px">Commodity</th><th>Generic Name</th><th>QTY/SOH</th><th>Unit</th><th>Pack Size</th><th>Supporter</th><th>Dose</th><th style="width: 250px">Action</th>
+					<th style="width:30%">Commodity</th><th>Generic Name</th><th>QTY/SOH</th><th>Unit</th><th>Pack Size</th><th>Supplier</th><th>Dose</th><th style="width:10%">Action</th>
 				</tr>
 			</thead>
 			<tbody>

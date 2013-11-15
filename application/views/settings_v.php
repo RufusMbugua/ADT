@@ -1,4 +1,8 @@
 <style>
+    .setting_table{
+    	font-size:12px;
+    	letter-spacing:0px;
+    }
 	.dataTables_length{
 		width:50%;
 	}
@@ -90,7 +94,7 @@
 				}
 				else{
 					oTable = $('.setting_table').dataTable({
-						"sScrollY" : "200px",
+						"sScrollY" : "250px",
 						"bJQueryUI" : true,
 						"sPaginationType" : "full_numbers",
 						"bDestroy":true
@@ -111,71 +115,53 @@
 		
 		//so which link was clicked?
 			  $('.setting_menus li').on('click',function(){
-			  	$(".settings_title").fadeIn("1000");
-			  	$(".settings").css("display","none");
-			  	$("#loadingDiv").css("display","block");
-			  	var linkDomain=" ";
-				link_id='#'+$(this).find('a').attr('id');
-				linkSub=$(this).find('a').attr('class');
-				linkIdUrl=link_id.substr(link_id.indexOf('#')+1,(link_id.indexOf('_li')-1));
-				//Get actual page title
-				linkTitle=$(this).find('a').attr('title');
-				//Change the page title value
-				$("#actual_page").html(linkTitle);
-				$(".settings").load('<?php echo base_url();?>'+linkSub+'/'+linkIdUrl,function(){
-					$("input[type='text']").attr("required","required");
-					$("#loadingDiv").css("display","none");
-					$(".settings").css("display","block");
-					/*
-						if(linkSub=="regimen_drug_management"){
-								$('#brand_name_table').dataTable({
-				    			"sScrollY": "240px",
-				    			"bLengthChange": false,
-				                "bPaginate": false,
-				                "bJQueryUI": true,
-				            	"bDestroy":true})
-				    	.rowGrouping({
-				                    bExpandableGrouping: true,
-				                    bExpandSingleGroup: false,
-				                    iExpandGroupOffset: -1,
-				                    asExpandedGroups: [""],
-				                    
-				                });
-				        GridRowCount();
-						function GridRowCount() {
-					        $('span.rowCount-grid').remove();
-					        $('input.expandedOrCollapsedGroup').remove();
+			  	//Synchronizes stock balance
+			  	if($(this).find('a').attr('class')=="stock_balance_synch"){
+			  		//Starts synchronization
+			  		$('#drug_stock_balance_synch').modal('show');
+			  		drug_cons_synch();
+			  		
+			  	}
+			  	//Synchronizes drug stock movment remaining balance
+			  	else if($(this).find('a').attr('class')=="stock_movement_balance_synch"){
+					$('#confirmbox').modal('show');
+						//No clicked
+						$('#confirmFalse').click(function(){
+							
+						});
+						//Yes Clicked
+						$('#confirmTrue').click(function(){
+							synch_drug_movement_balance("1");
+							$("#drug_stock__movement_balance_synch").modal("show");
+							
+						});
+			  		
+			  	}
+			  	else{
+			  		$(".settings_title").fadeIn("1000");
+				  	$(".settings").css("display","none");
+				  	$("#loadingDiv").css("display","block");
+				  	var linkDomain=" ";
+					link_id='#'+$(this).find('a').attr('id');
+					linkSub=$(this).find('a').attr('class');
+					linkIdUrl=link_id.substr(link_id.indexOf('#')+1,(link_id.indexOf('_li')-1));
+					//Get actual page title
+					linkTitle=$(this).find('a').attr('title');
+					//Change the page title value
+					$("#actual_page").html(linkTitle);
+					$(".settings").load('<?php echo base_url();?>'+linkSub+'/'+linkIdUrl,function(){
+						$("input[type='text']").attr("required","required");
+						$("#loadingDiv").css("display","none");
+						$(".settings").css("display","block");
+								oTable = $('.setting_table').dataTable({
+									"sScrollY" : "250px",
+									"bJQueryUI" : true,
+									"sPaginationType" : "full_numbers",
+									"bDestroy":true
+								});
 					
-					        $('.dataTables_wrapper').find('[id|=group-id]').each(function () {
-					            var rowCount = $(this).nextUntil('[id|=group-id]').length;
-					            $(this).find('td').append($('<span />', { 'class': 'rowCount-grid' }).append($('<b />', { 'text': '('+rowCount+')' })));
-					        });
-					
-					        $('.dataTables_wrapper').find('.dataTables_filter').append($('<input />', { 'type': 'button', 'class': 'expandedOrCollapsedGroup collapsed', 'value': 'Expanded All Group' }));
-					
-					        $('.expandedOrCollapsedGroup').live('click', function () {
-					            if ($(this).hasClass('collapsed')) {
-					                $(this).addClass('expanded').removeClass('collapsed').val('Collapse All Group').parents('.dataTables_wrapper').find('.collapsed-group').trigger('click');
-					            }
-					            else {
-					                $(this).addClass('collapsed').removeClass('expanded').val('Expanded All Group').parents('.dataTables_wrapper').find('.expanded-group').trigger('click');
-					            }
-				        	});
-				        };
-						}
-						else{
-					*/
-							oTable = $('.setting_table').dataTable({
-								"sScrollY" : "240px",
-								"bJQueryUI" : true,
-								"sPaginationType" : "full_numbers",
-								"bDestroy":true
-							});
-					/*		
-						}
-						*/
-						
-				});
+					});
+			  	}
 
 				
 				})/*end of which link was clicked*/
@@ -185,6 +171,11 @@
 		
 	
 	}); 
+	
+	
+	
+	
+	
 </script>
 
 <div class="center-content">
@@ -271,6 +262,9 @@
 						</li>
 						<li>
 							<a href="#" class="client_support" title="Facility Supporters Management">Facility Supporters</a>
+						</li>
+						<li>
+							<a href="#drug_stock_balance_synch" data-toggle="modal" class="stock_balance_synch" title="Stock balance synchronization">Stock synchronization</a>
 						</li>
 						<li>
 							<a href="#" class="user_management" title="Users Management">Users</a>

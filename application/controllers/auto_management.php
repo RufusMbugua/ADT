@@ -6,27 +6,424 @@ class auto_management extends MY_Controller {
 		ini_set("max_execution_time", "100000");
 		$this -> load -> library('PHPExcel');
 		$this -> load -> helper('url');
-		$this -> load -> database();
+		date_default_timezone_set('Africa/Nairobi');
 	}
 
 	public function index() {
+		$message = 0;
+		$today = (int)date('Ymd');
+		$stmt1 = "select last_index from migration_log where source='auto_update'";
+		$stmt2 = "update migration_log set last_index='$today' where source='auto_update'";
+		$q = $this -> db -> query($stmt1);
+		$rs = $q -> result_array();
+		$last_index = (int)$rs[0]['last_index'];
+		if ($today != $last_index) {
+			$message = $this -> auto_update();
+			$message .= $this -> auto_sms($this -> session -> userdata('facility_name'));
+			$this -> db -> query($stmt2);
+		}
+		echo $message;
+	}
 
-		$facility = $this -> session -> userdata('facility');
+	public function auto_sms($facility_name = "Liverpool VCT") {
+
+		/* Find out if today is on a weekend */
+		$weekDay = date('w');
+		if ($weekDay == 6) {
+			$tommorrow = date('Y-m-d', strtotime('+2 day'));
+		} else {
+			$tommorrow = date('Y-m-d', strtotime('+1 day'));
+		}
+
+		$phone_minlength = '8';
+		$phone = "";
+		$phone_list = "";
+		$first_part = "";
+		$kenyacode = "254";
+		$arrDelimiters = array("/", ",", "+");
+
+		$message = "You have an Appointment on " . date('l dS-M-Y', strtotime($tommorrow)) . " at $facility_name";
+
+		/*Get All Patient Who Consented Yes That have an appointment Tommorow */
+		$sql = "SELECT p.phone,p.patient_number_ccc,p.nextappointment,temp.patient,temp.appointment,temp.machine_code as status,temp.id
+					FROM patient p
+					LEFT JOIN 
+					(SELECT pa.id,pa.patient, pa.appointment, pa.machine_code
+					FROM patient_appointment pa
+					WHERE pa.appointment =  '$tommorrow'
+					GROUP BY pa.patient) as temp ON temp.patient=p.patient_number_ccc
+					WHERE p.sms_consent =  '1'
+					AND p.nextappointment =temp.appointment
+					AND char_length(p.phone)>$phone_minlength
+					AND temp.machine_code !='s'
+					GROUP BY p.patient_number_ccc";
+
+		$query = $this -> db -> query($sql);
+		$results = $query -> result_array();
+		$alert = "Patients notified (<b>" . $this -> db -> affected_rows() . "</b>)";
+
+		if ($results) {
+			foreach ($results as $result) {
+				$phone = $result['phone'];
+				$newphone = substr($phone, -$phone_minlength);
+				$first_part = str_replace($newphone, "", $phone);
+
+				if (strlen($first_part) < 7) {
+					if ($first_part === '07') {
+						$phone = "+" . $kenyacode . substr($phone, 1);
+						$phone_list .= $phone;
+					} else if ($first_part == '7') {
+						$phone = "0" . $phone;
+						$phone = "+" . $kenyacode . substr($phone, 1);
+						$phone_list .= $phone;
+					} else if ($first_part == '+' . $kenyacode . '07') {
+						$phone = str_replace($kenyacode . '07', $kenyacode . '7', $phone);
+						$phone_list .= $phone;
+					}
+				} else {
+					/*If Phone Does not meet requirements*/
+
+					$phone = str_replace($arrDelimiters, "-|-", $phone);
+					$phones = explode("-|-", $phone);
+
+					foreach ($phones as $phone) {
+						$newphone = substr($phone, -$phone_minlength);
+						$first_part = str_replace($newphone, "", $phone);
+						if (strlen($first_part) < 7) {
+							if ($first_part === '07') {
+								$phone = "+" . $kenyacode . substr($phone, 1);
+								$phone_list .= $phone;
+								break;
+							} else if ($first_part == '7') {
+								$phone = "0" . $phone;
+								$phone = "+" . $kenyacode . substr($phone, 1);
+								$phone_list .= $phone;
+								break;
+							} else if ($first_part == '+' . $kenyacode . '07') {
+								$phone = str_replace($kenyacode . '07', $kenyacode . '7', $phone);
+								$phone_list .= $phone;
+								break;
+							}
+						}
+					}
+				}
+				$stmt = "update patient_appointment set machine_code='s' where id='" . $result['id'] . "'";
+				$q = $this -> db -> query($stmt);
+			}
+			$phone_list = substr($phone_list, 1);
+		}
+		$phone_list = explode("+", $phone_list);
+		$message = urlencode($message);
+		foreach ($phone_list as $phone) {
+			file("http://41.57.109.242:13000/cgi-bin/sendsms?username=clinton&password=ch41sms&to=$phone&text=$message");
+		}
+		return $alert;
+	}
+
+	public function auto_update() {
+
+		$days_to_lost_followup = 90;
+		$days_to_pep_end = 30;
+		$days_in_year = date("z", mktime(0, 0, 0, 12, 31, date('Y'))) + 1;
+		$adult_age = 12;
+		$active = 'active';
+		$lost = 'lost';
+		$pep = 'pep';
+		$pmtct = 'pmtct';
+		$two_year_days = $days_in_year * 2;
+		$adult_days = $days_in_year * $adult_age;
+		$message = "";
+
+		//Get Patient Status id's
+		$status_array = array($active, $lost, $pep, $pmtct);
+		foreach ($status_array as $status) {
+			$s = "SELECT id,name FROM patient_status ps WHERE ps.name LIKE '%$status%'";
+			$q = $this -> db -> query($s);
+			$rs = $q -> result_array();
+			$state[$status] = $rs[0]['id'];
+		}
+
+		/*Change Last Appointment to Next Appointment*/
+		$sql['Change Last Appointment to Next Appointment'] = "(SELECT patient_number_ccc,nextappointment,temp.appointment,temp.patient
+					FROM patient p
+					LEFT JOIN 
+					(SELECT MAX(pa.appointment)as appointment,pa.patient
+					FROM patient_appointment pa
+					GROUP BY pa.patient) as temp ON p.patient_number_ccc =temp.patient
+					WHERE p.nextappointment !=temp.patient
+					AND DATEDIFF(temp.appointment,p.nextappointment)>0
+					GROUP BY p.patient_number_ccc) as p1
+					SET p.nextappointment=p1.appointment";
+
 		/*Change Active to Lost_to_follow_up*/
-		$sql = "update patient p,(SELECT patient_number_ccc FROM patient WHERE current_status =1 AND (DATEDIFF( CURDATE( ) ,nextappointment )) >=90 AND facility_code =  '$facility') as p1 set p.current_status = '5' where p.patient_number_ccc=p1.patient_number_ccc AND p.facility_code='$facility';";
-		$query = $this -> db -> query($sql);
+		$sql['Change Active to Lost_to_follow_up'] = "(SELECT patient_number_ccc,nextappointment,DATEDIFF(CURDATE(),nextappointment) as days
+				   FROM patient p
+				   LEFT JOIN patient_status ps ON ps.id=p.current_status
+				   WHERE ps.Name LIKE '%$active%'
+				   AND (DATEDIFF(CURDATE(),nextappointment )) >=$days_to_lost_followup) as p1
+				   SET p.current_status = '$state[$lost]'";
+
 		/*Change Lost_to_follow_up to Active */
-		$sql = "update patient p,(SELECT patient_number_ccc FROM patient WHERE current_status =5 AND (DATEDIFF( CURDATE( ) , nextappointment )) <90 AND facility_code =  '$facility') as p1 set p.current_status = '1' where p.patient_number_ccc=p1.patient_number_ccc AND p.facility_code='$facility';";
-		$query = $this -> db -> query($sql);
+		$sql['Change Lost_to_follow_up to Active'] = "(SELECT patient_number_ccc,nextappointment,DATEDIFF(CURDATE(),nextappointment) as days
+				   FROM patient p
+				   LEFT JOIN patient_status ps ON ps.id=p.current_status
+				   WHERE ps.Name LIKE '%$lost%'
+				   AND (DATEDIFF(CURDATE(),nextappointment )) <$days_to_lost_followup) as p1
+				   SET p.current_status = '$state[$active]' ";
+
 		/*Change Active to PEP End*/
-		$sql = "update patient p,(SELECT patient_number_ccc FROM patient WHERE (DATEDIFF(CURDATE(),date_enrolled))>=30 AND service=2 AND current_status !=3 AND facility_code='$facility') as p1 set p.current_status = '3' where p.patient_number_ccc=p1.patient_number_ccc AND p.facility_code='$facility';";
-		$query = $this -> db -> query($sql);
+		$sql['Change Active to PEP End'] = "(SELECT patient_number_ccc,rst.name as Service,ps.Name as Status,DATEDIFF(CURDATE(),date_enrolled) as days_enrolled
+				   FROM patient p
+				   LEFT JOIN regimen_service_type rst ON rst.id=p.service
+				   LEFT JOIN patient_status ps ON ps.id=p.current_status
+				   WHERE (DATEDIFF(CURDATE(),date_enrolled))>=$days_to_pep_end 
+				   AND rst.name LIKE '%$pep%' 
+				   AND ps.Name NOT LIKE '%$pep%') as p1
+				   SET p.current_status = '$state[$pep]' ";
+
+		/*Change PEP End to Active*/
+		$sql['Change PEP End to Active'] = "(SELECT patient_number_ccc,rst.name as Service,ps.Name as Status,DATEDIFF(CURDATE(),date_enrolled) as days_enrolled
+				   FROM patient p
+				   LEFT JOIN regimen_service_type rst ON rst.id=p.service
+				   LEFT JOIN patient_status ps ON ps.id=p.current_status
+				   WHERE (DATEDIFF(CURDATE(),date_enrolled))<$days_to_pep_end 
+				   AND rst.name LIKE '%$pep%' 
+				   AND ps.Name NOT LIKE '%$active%') as p1
+				   SET p.current_status = '$state[$active]' ";
+
 		/*Change Active to PMTCT End(children)*/
-		$sql = "update patient p,(SELECT patient_number_ccc FROM patient WHERE (DATEDIFF(CURDATE(),dob)) >=720 AND (DATEDIFF(CURDATE(),dob)) <4320 AND service=3 AND current_status !=4 AND facility_code='$facility') as p1 set p.current_status = '4' where p.patient_number_ccc=p1.patient_number_ccc AND p.facility_code='$facility';";
-		$query = $this -> db -> query($sql);
+		$sql['Change Active to PMTCT End(children)'] = "(SELECT patient_number_ccc,rst.name AS Service,ps.Name AS Status,DATEDIFF(CURDATE(),dob) AS days
+				   FROM patient p
+				   LEFT JOIN regimen_service_type rst ON rst.id = p.service
+				   LEFT JOIN patient_status ps ON ps.id = p.current_status
+				   WHERE (DATEDIFF(CURDATE(),dob )) >=$two_year_days
+				   AND (DATEDIFF(CURDATE(),dob)) <$adult_days
+				   AND rst.name LIKE  '%$pmtct%'
+				   AND ps.Name NOT LIKE  '%$pmtct%') as p1
+				   SET p.current_status = '$state[$pmtct]'";
+
 		/*Change PMTCT End to Active(Adults)*/
-		$sql = "update patient p,(SELECT patient_number_ccc FROM patient WHERE (DATEDIFF(CURDATE(),dob)) >=720 AND (DATEDIFF(CURDATE(),dob)) >=4320 AND service=3 AND current_status =4 AND facility_code='$facility') as p1 set p.current_status = '5' where p.patient_number_ccc=p1.patient_number_ccc AND p.facility_code='$facility';";
-		$query = $this -> db -> query($sql);
+		$sql['Change PMTCT End to Active(Adults)'] = "(SELECT patient_number_ccc,rst.name AS Service,ps.Name AS Status,DATEDIFF(CURDATE(),dob) AS days
+				   FROM patient p
+				   LEFT JOIN regimen_service_type rst ON rst.id = p.service
+				   LEFT JOIN patient_status ps ON ps.id = p.current_status 
+				   WHERE (DATEDIFF(CURDATE(),dob)) >=$two_year_days 
+				   AND (DATEDIFF(CURDATE(),dob)) >=$adult_days 
+				   AND rst.name LIKE '%$pmtct%'
+				   AND ps.Name LIKE '%$pmtct%') as p1
+				   SET p.current_status = '$state[$active]'";
+
+		foreach ($sql as $i => $q) {
+			$stmt1 = "UPDATE patient p,";
+			$stmt2 = " WHERE p.patient_number_ccc=p1.patient_number_ccc;";
+			$stmt1 .= $q;
+			$stmt1 .= $stmt2;
+			$q = $this -> db -> query($stmt1);
+			if ($this -> db -> affected_rows() > 0) {
+				$message .= $i . "(<b>" . $this -> db -> affected_rows() . "</b>) rows affected<br/>";
+			}
+		}
+		return $message;
+	}
+
+	public function base_params($data) {
+		$data['title'] = "webADT | Errors";
+		$data['banner_text'] = "System Errors";
+		$data['link'] = "patients";
+		$this -> load -> view('template', $data);
+	}
+
+	public function error_generator() {
+		$array_text = '';
+		$array_text = $this -> input -> post("array_text", true);
+		$error_list = $this -> error_correction();
+		$id_list = "";
+		$access_level = $this -> session -> userdata('user_indicator');
+
+		foreach ($error_list[$array_text] as $error_array) {
+			$id_list .= "'" . $error_array['id'] . "',";
+
+		}
+		$id_list = substr($id_list, 0, -1);
+
+		$stmt = "SELECT p.id,p.patient_number_ccc,p.first_name,p.other_name,p.last_name,p.phone,p.date_enrolled,p.nextappointment,r.regimen_desc,ps.Name,ps.Active
+		         FROM patient p 
+		         LEFT JOIN regimen r ON r.id=p.current_regimen
+		         LEFT JOIN patient_status ps ON ps.id=p.current_status
+		         WHERE p.id IN($id_list)
+		         AND p.active='1'
+		         GROUP BY p.patient_number_ccc";
+		$q = $this -> db -> query($stmt);
+		$rs = $q -> result_array();
+
+		$dyn_table = '<table class="dataTables" id="patient_listing" border="1" >';
+		$dyn_table .= '<thead><tr><th style="width:60px">CCC No</th><th>Patient Name</th><th>Contact</th><th style="width: 100px">Date Enrolled</th><th style="width: 100px">Next Appointment</th><th>Current Regimen</th><th style="width:150px">Status</th><th style="width:20%">Action</th></tr></thead><tbody>';
+		foreach ($rs as $r) {
+			$patient_name = strtoupper(trim($r['first_name'] . " " . $r['other_name'] . " " . $r['last_name']));
+			$id = $r['id'];
+			$link = "";
+			$link = '<a href="' . base_url() . 'patient_management/viewDetails/' . $id . '">Detail</a> | <a href="' . base_url() . 'patient_management/edit/' . $id . '">Edit</a> ' . $link;
+			if ($access_level == "facility_administrator") {
+				if ($r['Active'] == 1) {
+					$link .= '| <a href="' . base_url() . 'patient_management/disable/' . $id . '" class="red">Disable</a>';
+
+				} else {
+					$link .= '| <a href="' . base_url() . 'patient_management/enable/' . $id . '" class="green">Enable</a>';
+				}
+			}
+			$appointment = "";
+			$date_enrolled = "";
+			$appointment = $r['nextappointment'];
+			if ($appointment) {
+				$appointment = date('d-M-Y', strtotime($r['nextappointment']));
+			}
+			$date_enrolled = $r['date_enrolled'];
+			if ($date_enrolled) {
+				$date_enrolled = date('d-M-Y', strtotime($r['date_enrolled']));
+			}
+
+			$dyn_table .= "<tr><td>" . strtoupper($r['patient_number_ccc']) . "</td><td>" . $patient_name . "</td><td>" . $r['phone'] . "</td><td>" . $date_enrolled . "</td><td>" . $appointment . "</td><td><b>" . strtoupper($r['regimen_desc']) . "</b></td><td><b>" . $r['Name'] . "</b></td><td>" . $link . "</td></tr>";
+		}
+		$dyn_table .= "</tbody></table>";
+		echo $dyn_table;
+	}
+
+	public function error_fix() {
+		$data['errors'] = $this -> error_correction();
+
+		foreach ($data['errors'] as $error => $error_array) {
+              $data['first_error']=$error;
+			  break;
+		}
+		$data['content_view'] = "error_listing_v";
+		$this -> base_params($data);
+	}
+
+	public function error_correction() {
+		$overall_total = 0;
+		$error_array = array();
+
+		/*Patients without Gender*/
+		$sql['Patients without Gender'] = "SELECT p.patient_number_ccc,p.gender,p.id
+										   FROM patient p 
+										   LEFT JOIN gender g on g.id=p.gender
+										   WHERE (p.gender=' ' 
+										   OR p.gender='' 
+										   OR p.gender='null' 
+										   OR p.gender is null)
+										   AND p.active='1'
+										   GROUP BY p.patient_number_ccc;";
+
+		/*Patients without DOB*/
+		$sql['Patients without DOB'] = "SELECT p.patient_number_ccc,p.dob,p.id
+										FROM patient p 
+										WHERE (p.dob=' ' 
+										OR p.dob='' 
+										OR p.dob='null' 
+										OR p.dob is null)
+										AND p.active='1'
+										GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Appointment*/
+		$sql['Patients without Appointment'] = "SELECT p.patient_number_ccc, p.nextappointment, ps.Name AS current_status,p.id
+											   FROM patient p
+											   LEFT JOIN patient_status ps ON ps.id = p.current_status
+											   WHERE(p.nextappointment = ' '
+											   OR p.nextappointment =  ''
+											   OR p.nextappointment =  'null'
+											   OR p.nextappointment IS NULL)
+											   AND p.active = '1'
+											   AND ps.Name LIKE '%active%'
+											   AND p.active='1'
+											   GROUP BY p.patient_number_ccc;";
+		/*Patients without Current Regimen*/
+		$sql['Patients without Current Regimen'] = "SELECT p.patient_number_ccc,p.current_regimen,CONCAT_WS(' | ',r.regimen_code,r.regimen_desc) as regimen,p.id
+												FROM patient p 
+												LEFT JOIN regimen r ON r.id=p.current_regimen
+												WHERE (p.current_regimen=' '
+												OR p.current_regimen=''
+												OR p.current_regimen is null
+												OR p.current_regimen='null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+		/*Patients without Start Regimen*/
+		$sql['Patients without Start Regimen'] = "SELECT p.patient_number_ccc, p.start_regimen, CONCAT_WS(  ' | ', r.regimen_code, r.regimen_desc ) AS regimen,p.id
+												FROM patient p
+												LEFT JOIN regimen r ON r.id = p.start_regimen
+												WHERE (p.start_regimen =  ' '
+												OR p.start_regimen =  ''
+												OR p.start_regimen IS NULL 
+												OR p.start_regimen =  'null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+		/*Patients without Current Status*/
+		$sql['Patients without Current Status'] = "SELECT p.patient_number_ccc,p.current_status,ps.Name as status,p.id
+												FROM patient p
+												LEFT JOIN patient_status ps ON ps.id=p.current_status
+												WHERE(p.current_status=' '
+												OR p.current_status=''
+												OR p.current_status is null
+												OR p.current_status='null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Service Line*/
+		$sql['Patients without Current Status'] = "SELECT p.patient_number_ccc,p.service,rst.name as status,p.id
+												FROM patient p
+												LEFT JOIN regimen_service_type rst ON rst.id=p.service
+												WHERE(p.service=' '
+												OR p.service=''
+												OR p.service is null
+												OR p.service='null')
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Duplicate Patient Numbers*/
+		$sql['Duplicate Patient Numbers'] = "SELECT p.patient_number_ccc,count(p.patient_number_ccc) as total,p.id
+											FROM patient p
+											WHERE p.active='1'
+											GROUP by p.patient_number_ccc
+											HAVING(total >1);";
+
+		/*Patients without Enrollment date*/
+		$sql['Patients without Enrollment date'] = "SELECT p.patient_number_ccc,p.id,p.date_enrolled
+												FROM patient p
+												WHERE char_length(p.date_enrolled)<10
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Status Change date*/
+		$sql['Patients without Status Change date'] = "SELECT p.patient_number_ccc,p.id,p.status_change_date
+												FROM patient p
+												WHERE char_length(p.status_change_date)<10
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients without Start Regimen date*/
+		$sql['Patients without Start Regimen date'] = "SELECT p.patient_number_ccc,p.id,p.start_regimen_date
+												FROM patient p
+												WHERE char_length(p.start_regimen_date)<10
+												AND p.active='1'
+												GROUP BY p.patient_number_ccc;";
+
+		/*Patients With Incorrect Current Regimens*/
+		$sql['Patients with Incorrect Current Regimens'] = "SELECT p.id,p.patient_number_ccc, p.first_name, p.last_name, p.service, p.current_regimen, r.regimen_desc, rst1.Name AS FIRST,rst2.Name AS SECOND 
+														FROM patient p
+														LEFT JOIN regimen r ON r.id = p.current_regimen
+														LEFT JOIN regimen_service_type rst1 ON rst1.id = p.service
+														LEFT JOIN regimen_service_type rst2 ON rst2.id = r.type_of_service
+														WHERE rst1.id != rst2.id
+														GROUP BY p.patient_number_ccc;";
+
+		foreach ($sql as $i => $q) {
+			$q = $this -> db -> query($q);
+			if ($this -> db -> affected_rows() > 0) {
+				$overall_total += $this -> db -> affected_rows();
+				$rs = $q -> result_array();
+				$error_array[$i . "(" . $this -> db -> affected_rows() . ")"] = $rs;
+			}
+		}
+		return $error_array;
 	}
 
 	public function export() {
@@ -41,6 +438,7 @@ left join regimen_service_type rst on rst.id=p.service
 left join patient_status pst on pst.id=p.current_status
 left join facilities f on f.facilitycode=p.transfer_from
 WHERE facility_code='$facility_code' 
+AND p.active='1'
 ORDER BY p.patient_number_ccc ASC";
 		$query = $this -> db -> query($sql);
 		$results = $query -> result_array();
@@ -156,7 +554,9 @@ ORDER BY p.patient_number_ccc ASC";
 		//if (ob_get_contents())
 		//ob_end_clean();
 		ob_start();
-		$filename = "Patient Master For " . $facility_code . ".csv";
+		$facility_name = Facilities::getFacilityName($facility_code);
+		$facility_name .= "(" . date('d-M-Y h:i:s a') . ")";
+		$filename = "Patient List From " . $facility_name . ".csv";
 		header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
 		header("Cache-Control: no-store, no-cache, must-revalidate");
 		header("Cache-Control: post-check=0, pre-check=0", false);
@@ -172,31 +572,23 @@ ORDER BY p.patient_number_ccc ASC";
 		unset($objPHPExcel);
 	}
 
-	public function auto_sms() {
-		$tommorrow = date('Y-m-d', strtotime('+1 day'));
-		$sql = "SELECT phone FROM patient WHERE sms_consent ='1' AND nextappointment ='$tommorrow' GROUP BY phone";
-		$query = $this -> db -> query($sql);
-		$results = $query -> result_array();
-		$phone = "";
-		$phone_list = "";
-		$message = "You have an Appointment Tommorow on " . date('d-M-Y', strtotime($tommorrow)) . " at Liverpool VCT";
-		if ($results) {
-			foreach ($results as $result) {
-				$phone = $result['phone'];
-				if (strlen($phone) == '10') {
+	public function password_notification($user_id) {
 
-				} else if (strlen($phone) == 9) {
-					if ($phone[0] != '0') {
-						$phone = "0" . $phone;
-					}
-				}
-				$phone = "+254" . substr($phone, 1);
-				$phone_list .= $phone;
-			}
-			 $phone_list = substr($phone_list, 1);
+		$days_before_pwdchange = 30;
+		$notification_start = 10;
+
+		$stmt = "SELECT $days_before_pwdchange-DATEDIFF(CURDATE(),u.Time_Created) as days_to_go
+		         FROM users u
+		         WHERE id='$user_id'";
+		$q = $this -> db -> query($stmt);
+		$rs = $q -> result_array();
+		$days_before_pwdchange = $rs[0]['days_to_go'];
+		if ($days_before_pwdchange > $notification_start) {
+			$days_before_pwdchange = "";
+		} else {
+			echo "<a><i class='icon-th'></i>Days to Password expiry <div class='badge badge-important'>" . $days_before_pwdchange . "</div></a>";
 		}
-		$message = urlencode($message);
-		file("http://41.57.109.242:13000/cgi-bin/sendsms?username=clinton&password=ch41sms&to=$phone_list=$message");
+
 	}
 
 }

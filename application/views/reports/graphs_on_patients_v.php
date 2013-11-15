@@ -87,7 +87,7 @@
 
 		// SERIAL CHART
 		chart = new AmCharts.AmSerialChart();
-		chart.pathToImages = "../../Scripts/amcharts/images/";
+		chart.pathToImages = "../../assets/scripts/amcharts/images/";
 		chart.dataProvider = chartDta_all;
 		chart.categoryField = "MONTH";
 		chart.zoomOutButton = {

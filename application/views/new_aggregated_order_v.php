@@ -104,8 +104,8 @@
 		resupply=parseInt(resupply);
 		row_element.find('.label-warning').remove();
 		if(resupply<0){
-			row_element.find('.col_drug').append("<span class='label label-warning' style='display:block'>Warning! Resupply qty cannot be negative</<span>");
-			row_element.find(".resupply").css("background-color","#f89406");
+			//row_element.find('.col_drug').append("<span class='label label-warning' style='display:block'>Warning! Resupply qty cannot be negative</<span>");
+			//row_element.find(".resupply").css("background-color","#f89406");
 		}
 		else{
 			row_element.find(".resupply").css("background-color","#fff");
@@ -194,6 +194,7 @@
 	
 	<th class="col_adjustments">Adjustments (Borrowed from or Issued out to Other Facilities)</th>
 	<th class="number">End of Month Physical Count</th>
+	<th class="number" colspan="2">Quantity to Expire in less than 6 months</th>
 	
 	<!-- aggr_consumed/on_hand -->
 	<th class="number">Qty required for Resupply</th>
@@ -210,6 +211,8 @@
 	
 	<th>In Packs</th> <!-- adjustments -->
 	<th>In Packs</th> <!-- count -->
+	<th>In Packs</th> <!-- expire -->
+    <th>mm-yy</th> <!-- expire -->
 	
 	<!-- aggr_consumed/on_hand -->
 	
@@ -223,7 +226,9 @@
 	<th>D</th> <!-- losses -->
 	<th>E</th> <!-- adjustments -->
 	<th>F</th> <!-- count -->
-	<th>G</th> <!-- count -->
+	<th>G</th> <!-- expire -->
+    <th>H</th> <!-- expire -->
+    <th>I</th> <!-- count -->
 	
 	<!-- aggr_consumed/on_hand -->
 	
@@ -275,6 +280,13 @@
 				</td>
 				<td class="number calc_resupply col_count">
 				<input tabindex="-1" name="physical_count[]" id="CdrrItem_10_count" type="text" class="physical_count" value="<?php echo @ceil($cdrr_values['count']/@$commodity -> Pack_Size);?>">
+				</td>
+				<!--Expire-->
+				<td class="number calc_expire_qty col_exqty">
+					<input tabindex="-1" name="expire_qty[]" id="expire_qty_<?php echo $commodity -> id;?>" type="text" class="expire_qty" value="<?php echo @ceil($cdrr_values['aggr_consumed']/@$commodity -> Pack_Size);?>">
+				</td>
+				<td class="number calc_expire_period col_experiod">
+				    <input tabindex="-1" name="expire_period[]" id="expire_period_<?php echo $commodity -> id;?>" type="text" class="expire_period" value="<?php echo @$cdrr_values['aggr_on_hand'];?>">
 				</td>
 				<!-- aggregate -->
 				<td class="number col_resupply">

@@ -130,7 +130,18 @@ $(document).ready(function() {
 			$(".select_types").css("display","none");
 			$("#date_range_report").css("display","block");
 			//If report is drug_consumption report, display select report type
-			if(get_id=='drug_stock_on_hand' || get_id=='expiring_drugs' || get_id=='expired_drugs' || get_id=='getDrugsIssued' || get_id=='getDrugsReceived'){
+			if(get_id=='drug_stock_on_hand' || get_id=='expiring_drugs' || get_id=='expired_drugs' || get_id=='getDrugsIssued' || get_id=='getDrugsReceived' ){
+				$(".show_report_type").show();
+			}
+			else{
+				$(".show_report_type").hide();
+			}
+		}
+		else if(get_type=="month_range_report"){
+			$(".select_types").css("display","none");
+			$("#month_range_report").css("display","block");
+			//If report is drug_consumption report, display select report type
+			if(get_id=='drug_stock_on_hand' || get_id=='expiring_drugs' || get_id=='expired_drugs' || get_id=='getDrugsIssued' || get_id=='getDrugsReceived' || get_id=='commodity_summary'){
 				$(".show_report_type").show();
 			}
 			else{
