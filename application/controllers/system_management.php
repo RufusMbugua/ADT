@@ -6,17 +6,25 @@ class System_management extends MY_Controller {
 		parent::__construct();
 		$this -> load -> library('PHPExcel');
 		$this -> load -> helper('url');
+		$this -> load -> library('github_updater');
 		date_default_timezone_set('Africa/Nairobi');
 
 	}
 
 	public function index() {
+		//$this->runGithubUpdater();
+		echo 'Updating System........';
+		$this -> runGithubUpdater();
+		echo 'Done updating System';
 		$this -> load_assets();
+		
+		
 		redirect('user_management/login');
 	}
 
 	public function load_assets() {
 		$this -> load -> library('carabiner');
+		
 		$date_past = date('o-m-d H:i:s', time() - 1 * 60);
 
 		$jsArray = array( array('jquery-1.10.2.js'), array('jquery-1.7.2.min.js'), array('jquery-migrate-1.2.1.js'), array('jquery.form.js'), array('jquery.gritter.js'), array('jquery-ui.js'), array('sorttable.js'), array('datatable/jquery.dataTables.min.js'), array('bootstrap/bootstrap.min.js'), array('bootstrap/paging.js'), array('Merged_JS.js'), array('jquery.multiselect.js'), array('jquery.multiselect.filter.js'), array('validator.js'), array('validationEngine-en.js'), array('menus.js'), array('jquery.blockUI.js'), array('amcharts/amcharts.js'), array('highcharts/highcharts.js'), array('highcharts/highcharts-more.js'), array('highcharts/modules/exporting.js'));
@@ -27,6 +35,18 @@ class System_management extends MY_Controller {
 
 		$assets = $this -> carabiner -> display_string();
 		$this -> session -> set_userdata('assets', $assets);
+	}
+
+	public function runGithubUpdater() {
+		$hasUpdate = $this -> github_updater -> has_update();
+		//echo $hasUpdate;die;
+		if($hasUpdate>0){
+			$this -> github_updater -> update();
+		}
+		else{
+			
+		}
+		
 	}
 
 }
